@@ -2,9 +2,11 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { SamuOcrExtractionPocStack } from '../lib/samu-ocr-extraction-poc-stack';
+import MedicalExtractor from '../lib/medical-extractor';
+import CorrespondenceExtractor from '../lib/correspondence-extractor';
 
 const app = new cdk.App();
-new SamuOcrExtractionPocStack(app, 'SamuOcrExtractionPocStack', {
+const sharedInfra = new SamuOcrExtractionPocStack(app, 'SamuOcrExtractionPocStack', {
   /* If you don't specify 'env', this stack will be environment-agnostic.
    * Account/Region-dependent features and context lookups will not work,
    * but a single synthesized template can be deployed anywhere. */
@@ -19,3 +21,11 @@ new SamuOcrExtractionPocStack(app, 'SamuOcrExtractionPocStack', {
 
   /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
 });
+
+new MedicalExtractor(app, 'MedExtractorStack', {
+  docTable: sharedInfra.docTable,
+})
+
+new CorrespondenceExtractor(app, 'CommsExtractorStac', {
+  docTable: sharedInfra.docTable,
+})

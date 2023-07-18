@@ -5,6 +5,8 @@ import MedicalExtractor from './medical-extractor';
 import CorrespondenceExtractor from './correspondence-extractor';
 
 export class SamuOcrExtractionPocStack extends cdk.Stack {
+  readonly docTable: dynamo.Table;
+  readonly caseTable: dynamo.Table;
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
@@ -25,12 +27,7 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
       },
     })
 
-
-    const medicalExtractor = new MedicalExtractor(this, 'MedExtractor', {
-      docTable: documentTable,
-    });
-    const correspondenceExtractor = new CorrespondenceExtractor(this, 'CommsExtractor', {
-      docTable: documentTable,
-    });
+    this.docTable = documentTable;
+    this.caseTable = caseTable;
   }
 }
