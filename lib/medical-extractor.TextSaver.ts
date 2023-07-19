@@ -27,7 +27,7 @@ interface TextractRecord {
 }
 
 async function getDocumentText(jobId: string): Promise<string[]> {
-  let nextToken = undefined;
+  let nextToken: string | undefined = undefined;
   let text: string[] = [];
   do {
     console.debug('Getting Text Result', nextToken);
