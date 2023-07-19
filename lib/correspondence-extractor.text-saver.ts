@@ -1,12 +1,7 @@
 import { Handler } from 'aws-cdk-lib/aws-lambda';
-import { TriggerEvent } from './shared';
 import { TextExtractor, TextractRecord } from './text-extractor';
 import { DynamoDBPersistor } from './dynamodb-persistor';
 import { SNSEvent } from 'aws-lambda';
-
-interface Result {
-  status: string
-}
 
 export const handler: Handler = async (
   event: SNSEvent
