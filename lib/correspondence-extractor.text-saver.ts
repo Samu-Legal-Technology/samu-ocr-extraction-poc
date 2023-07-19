@@ -13,8 +13,7 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     const extractor = new TextExtractor({});
     const extraction = await extractor.fetchJobOutputFrom({ jobId });
 
-    const persistor = new DynamoDBPersistor();
-    const status = await persistor.persist(
+    const status = await DynamoDBPersistor.persist(
       process.env.DOC_INFO_TABLE_NAME,
       documentId,
       {

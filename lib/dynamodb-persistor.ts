@@ -8,7 +8,7 @@ import {
 const db = new DynamoDBClient({});
 
 export class DynamoDBPersistor {
-  async persist(
+  static async persist(
     tableName: string | undefined,
     docId: string,
     item: PutItemInput['Item']

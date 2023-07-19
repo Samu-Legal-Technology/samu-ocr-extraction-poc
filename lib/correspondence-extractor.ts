@@ -1,4 +1,4 @@
-import { Construct } from "constructs";
+import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 import * as dynamo from 'aws-cdk-lib/aws-dynamodb';
 import * as jsLambda from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -11,9 +11,13 @@ interface CorrespondenceExtractorProps {
 }
 
 export default class CorrespondenceExtractor extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: CorrespondenceExtractorProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: CorrespondenceExtractorProps
+  ) {
     super(scope, id);
-    
+
     const topic = new sns.Topic(this, 'CorrespondenceDocumentText', {});
     const textractPublishingRole = new iam.Role(
       this,
@@ -44,7 +48,7 @@ export default class CorrespondenceExtractor extends cdk.Stack {
         NOTIFICATION_TOPIC_ARN: topic.topicArn,
         NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
       },
-    })
+    });
 
     textExtractor.addToRolePolicy(
       new iam.PolicyStatement({
@@ -57,8 +61,8 @@ export default class CorrespondenceExtractor extends cdk.Stack {
     const textSaver = new jsLambda.NodejsFunction(this, 'text-saver', {
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.tableName,
-      }
-    })
+      },
+    });
 
     topic.addSubscription(new subs.LambdaSubscription(textSaver));
 
