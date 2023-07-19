@@ -56,5 +56,21 @@ export default class MedicalExtractor extends cdk.Stack {
     topic.addSubscription(
       new subs.EmailSubscription("shem.sedrick@caylent.com"),
     );
+
+    const textSaver = new jsLambda.NodejsFunction(this, "TextSaver", {
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DOC_INFO_TABLE_NAME: props.docTable.tableName,
+      }
+    })
+    textSaver.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['textract:GetDocumentTextDetection'],
+      resources: ['*']
+    }))
+    textSaver.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+      resources: [props.docTable.tableArn],
+    }))
+    topic.addSubscription(new subs.LambdaSubscription(textSaver))
   }
 }

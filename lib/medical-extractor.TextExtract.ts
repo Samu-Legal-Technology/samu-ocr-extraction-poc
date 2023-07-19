@@ -30,7 +30,7 @@ export const handler: Handler = async (event: TriggerEvent): Promise<Result> => 
       SNSTopicArn: process.env.NOTIFICATION_TOPIC_ARN,
     },
     JobTag: documentId,
-  }))
+  }));
   return {
     documentId,
     detectTextJobId: extractTextJob.JobId,

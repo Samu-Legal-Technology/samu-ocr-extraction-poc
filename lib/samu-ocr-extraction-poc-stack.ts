@@ -21,10 +21,10 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
         type: dynamo.AttributeType.STRING,
         name: "documentId",
       },
-      sortKey: {
-        type: dynamo.AttributeType.STRING,
-        name: "caseId",
-      },
+      // sortKey: {
+      //   type: dynamo.AttributeType.STRING,
+      //   name: "caseId",
+      // },
     });
 
     this.docTable = documentTable;
