@@ -6,26 +6,32 @@ import MedicalExtractor from '../lib/medical-extractor';
 import CorrespondenceExtractor from '../lib/correspondence-extractor';
 
 const app = new cdk.App();
-const sharedInfra = new SamuOcrExtractionPocStack(app, 'SamuOcrExtractionPocStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
 
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const tags = cdk.Tags.of(app);
+tags.add('application', 'ocr-poc');
+tags.add('team', 'Caylent');
 
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
-
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
-});
+const sharedInfra = new SamuOcrExtractionPocStack(
+  app,
+  'SamuOcrExtractionPocStack',
+  {
+    /* If you don't specify 'env', this stack will be environment-agnostic.
+     * Account/Region-dependent features and context lookups will not work,
+     * but a single synthesized template can be deployed anywhere. */
+    /* Uncomment the next line to specialize this stack for the AWS Account
+     * and Region that are implied by the current CLI configuration. */
+    // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+    /* Uncomment the next line if you know exactly what Account and Region you
+     * want to deploy the stack to. */
+    // env: { account: '123456789012', region: 'us-east-1' },
+    /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+  }
+);
 
 new MedicalExtractor(app, 'MedExtractorStack', {
   docTable: sharedInfra.docTable,
-})
+});
 
-new CorrespondenceExtractor(app, 'CommsExtractorStac', {
+new CorrespondenceExtractor(app, 'CommsExtractorStack', {
   docTable: sharedInfra.docTable,
-})
+});
