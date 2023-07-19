@@ -14,4 +14,4 @@ export const handler: Handler = async (
   const extraction = await extractor.asyncExtract(event.bucket, event.key);
 
   return extraction;
-}
+};
