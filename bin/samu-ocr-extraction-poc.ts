@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-import "source-map-support/register";
-import * as cdk from "aws-cdk-lib";
-import { SamuOcrExtractionPocStack } from "../lib/samu-ocr-extraction-poc-stack";
-import MedicalExtractor from "../lib/medical-extractor";
-import CorrespondenceExtractor from "../lib/correspondence-extractor";
+import 'source-map-support/register';
+import * as cdk from 'aws-cdk-lib';
+import { SamuOcrExtractionPocStack } from '../lib/samu-ocr-extraction-poc-stack';
+import MedicalExtractor from '../lib/medical-extractor';
+import CorrespondenceExtractor from '../lib/correspondence-extractor';
 
 const app = new cdk.App();
 
 const tags = cdk.Tags.of(app);
-tags.add("application", "ocr-poc");
-tags.add("team", "Caylent");
+tags.add('application', 'ocr-poc');
+tags.add('team', 'Caylent');
 
 const sharedInfra = new SamuOcrExtractionPocStack(
   app,
-  "SamuOcrExtractionPocStack",
+  'SamuOcrExtractionPocStack',
   {
     /* If you don't specify 'env', this stack will be environment-agnostic.
      * Account/Region-dependent features and context lookups will not work,
@@ -25,13 +25,13 @@ const sharedInfra = new SamuOcrExtractionPocStack(
      * want to deploy the stack to. */
     // env: { account: '123456789012', region: 'us-east-1' },
     /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
-  },
+  }
 );
 
-new MedicalExtractor(app, "MedExtractorStack", {
+new MedicalExtractor(app, 'MedExtractorStack', {
   docTable: sharedInfra.docTable,
 });
 
-new CorrespondenceExtractor(app, "CommsExtractorStack", {
+new CorrespondenceExtractor(app, 'CommsExtractorStack', {
   docTable: sharedInfra.docTable,
 });
