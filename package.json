@@ -11,7 +11,10 @@
     "cdk": "cdk"
   },
   "lint-staged": {
-    "*.ts": "prettier --write"
+    "**/*.ts": [
+      "prettier --write",
+      "tsc --noEmit"
+    ]
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.119",
