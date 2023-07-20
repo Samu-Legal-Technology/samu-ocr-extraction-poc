@@ -6,9 +6,10 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as jsLambda from 'aws-cdk-lib/aws-lambda-nodejs';
+import { TableAttributes } from './samu-ocr-extraction-poc-stack';
 
 interface MedicalExtractorProps extends cdk.StackProps {
-  docTable: dynamo.Table;
+  docTable: TableAttributes;
 }
 
 export default class MedicalExtractor extends cdk.Stack {
@@ -39,15 +40,20 @@ export default class MedicalExtractor extends cdk.Stack {
         }),
       }
     );
-    const textExtractor = new jsLambda.NodejsFunction(this, 'TextExtract', {
-      bundling: {
-        nodeModules: ['uuid'],
-      },
-      environment: {
-        NOTIFICATION_TOPIC_ARN: topic.topicArn,
-        NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
-      },
-    });
+    const textExtractor = new jsLambda.NodejsFunction(
+      this,
+      'MedicalExtractor',
+      {
+        functionName: 'StartMedicalExtraction',
+        bundling: {
+          nodeModules: ['uuid'],
+        },
+        environment: {
+          NOTIFICATION_TOPIC_ARN: topic.topicArn,
+          NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
+        },
+      }
+    );
     textExtractor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['textract:StartDocumentTextDetection'],
@@ -64,7 +70,7 @@ export default class MedicalExtractor extends cdk.Stack {
     const textSaver = new jsLambda.NodejsFunction(this, 'TextSaver', {
       timeout: cdk.Duration.seconds(30),
       environment: {
-        DOC_INFO_TABLE_NAME: props.docTable.tableName,
+        DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
       },
     });
     textSaver.addToRolePolicy(
@@ -76,7 +82,7 @@ export default class MedicalExtractor extends cdk.Stack {
     textSaver.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
-        resources: [props.docTable.tableArn],
+        resources: [props.docTable.arn.importValue],
       })
     );
     topic.addSubscription(new subs.LambdaSubscription(textSaver));
