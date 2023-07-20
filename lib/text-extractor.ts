@@ -6,6 +6,7 @@ import {
   StartDocumentTextDetectionCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
+import { generateId } from './utils';
 
 const textract = new TextractClient({});
 
@@ -43,7 +44,7 @@ export class TextExtractor {
     bucket: string,
     key: string
   ): Promise<TextExtractorSyncResult> {
-    const documentId = uuid();
+    const documentId = generateId(key);
     const extraction = await textract.send(
       new DetectDocumentTextCommand({
         Document: {

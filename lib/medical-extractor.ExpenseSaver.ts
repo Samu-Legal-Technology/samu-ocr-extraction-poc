@@ -6,15 +6,10 @@ import {
   GetExpenseAnalysisCommandOutput,
   TextractClient,
 } from '@aws-sdk/client-textract';
-import {
-  DynamoDBClient,
-  PutItemCommand,
-  ReturnValue,
-} from '@aws-sdk/client-dynamodb';
 import { TextractRecord } from './shared';
 import { sanitizeExpenseValue } from './utils';
+import { persist } from './dynamodb-persistor';
 
-const db = new DynamoDBClient({});
 const textract = new TextractClient({});
 
 interface ExpenseData {
@@ -25,7 +20,7 @@ interface ExpenseData {
 function parseDocumentTotal(rawTotal: string | undefined): number | undefined {
   if (rawTotal) {
     const parsed = parseFloat(sanitizeExpenseValue(rawTotal));
-    console.debug('Parsed Total', parsed)
+    console.debug('Parsed Total', parsed);
     if (!isNaN(parsed)) {
       return parsed;
     }
@@ -95,28 +90,21 @@ async function getDocumentExpenses(jobId: string): Promise<ExpenseData> {
   return getExpenseAnalysis(jobId);
 }
 
-async function saveExpenseData(docId: string, { total, expenses }: ExpenseData): Promise<number | undefined> {
-  const res = await db.send(
-    new PutItemCommand({
-      TableName: process.env.DOC_INFO_TABLE_NAME,
-      Item: {
-        documentId: {
-          S: docId,
-        },
-        type: {
-          S: 'medical',
-        },
-        totalExpenses: {
-          N: total.toFixed(2),
-        },
-        expenses: {
-          L: expenses.map((expense) => ({ N: expense.toFixed(2) })),
-        },
-      },
-      ReturnValues: ReturnValue.NONE,
-    })
-  );
-  return res.$metadata.httpStatusCode;
+async function saveExpenseData(
+  docId: string,
+  { total, expenses }: ExpenseData
+): Promise<number | undefined> {
+  return await persist(process.env.DOC_INFO_TABLE_NAME, docId, {
+    type: {
+      S: 'medical',
+    },
+    totalExpenses: {
+      N: total.toFixed(2),
+    },
+    expenses: {
+      L: expenses.map((expense) => ({ N: expense.toFixed(2) })),
+    },
+  });
 }
 
 export const handler: Handler = async (event: SNSEvent): Promise<any> => {

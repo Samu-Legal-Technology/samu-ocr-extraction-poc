@@ -1,15 +1,18 @@
 import { Handler } from 'aws-lambda';
 import { TriggerEvent } from './shared';
 import {
-  StartDocumentTextDetectionCommand,
   StartExpenseAnalysisCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
 import * as crypto from 'crypto';
+import { TextExtractor } from './text-extractor';
+import { generateId } from './utils';
 
 const textract = new TextractClient({});
-
-interface TextExtract extends TriggerEvent {}
+const extractor = new TextExtractor({
+  roleArn: process.env.NOTIFICATION_ROLE_ARN,
+  topicArn: process.env.NOTIFICATION_TOPIC_ARN,
+});
 
 interface Result {
   documentId: string;
@@ -17,18 +20,11 @@ interface Result {
   analyseExpenseJobId?: string;
 }
 
-function getDocumentId(key: string): string {
-  // return uuid();
-  const hash = crypto.createHash('sha256');
-  hash.update(key);
-  return hash.digest('hex');
-}
-
 export const handler: Handler = async (
   event: TriggerEvent
 ): Promise<Result> => {
   console.log('Got Event', event);
-  const documentId = getDocumentId(event.key);
+  const documentId = generateId(event.key);
   console.debug('Doc Id', documentId);
   const docLocation = {
     S3Object: {
@@ -36,17 +32,7 @@ export const handler: Handler = async (
       Name: event.key,
     },
   };
-  const extractTextJob = await textract.send(
-    new StartDocumentTextDetectionCommand({
-      DocumentLocation: docLocation,
-      ClientRequestToken: documentId,
-      NotificationChannel: {
-        RoleArn: process.env.NOTIFICATION_ROLE_ARN,
-        SNSTopicArn: process.env.NOTIFICATION_TOPIC_ARN,
-      },
-      JobTag: documentId,
-    })
-  );
+  const extractTextJob = await extractor.asyncExtract(event.bucket, event.key);
   const expenseJob = await textract.send(
     new StartExpenseAnalysisCommand({
       JobTag: documentId,
@@ -60,7 +46,7 @@ export const handler: Handler = async (
   );
   return {
     documentId,
-    detectTextJobId: extractTextJob.JobId,
+    detectTextJobId: extractTextJob.jobId,
     analyseExpenseJobId: expenseJob.JobId,
   };
 };
