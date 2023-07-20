@@ -14,14 +14,16 @@ Entry point lambdas:
 - [StartMedicalExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartMedicalExtraction?tab=code)
 - [StartCorrespondenceExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartCorrespondenceExtraction?tab=code)
 
+After running a test, you will get a response that has the generated `documentId` used througout the extraction process. Take not of the `documentId` for later.
+
 ## Reviewing the results
 
 The extractors will take a while to run as they wait for asyncronous responses from
 the Textract and Comprehend apis.
-After the extraction process is finished, there will be a message sent to the result topic (ExtractionResultNotification).
-You can subscribe to that topic to get notified when it is done.
+After the extraction process is finished, there will be a message sent to the result topic ([ExtractionResultNotification](https://us-east-1.console.aws.amazon.com/sns/v3/home?region=us-east-1#/topic/arn:aws:sns:us-east-1:371292405073:ExtractionResultNotification)).
+You can [subscribe](https://docs.aws.amazon.com/sns/latest/dg/sns-email-notifications.html) to that topic to get notified when it is done.
 
-Once it is done, take the document id and search for it in the DynamoDB table
+Once it is done, take the `documentId` from either the notification or the result of starting the extraction and search for it in the DynamoDB table
 [DocumentInfo](https://us-east-1.console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?maximize=true&table=DocumentInfo).
 
 # Welcome to your CDK TypeScript project
