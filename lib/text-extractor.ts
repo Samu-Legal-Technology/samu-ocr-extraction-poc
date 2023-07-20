@@ -6,6 +6,10 @@ import {
   TextractClient,
 } from '@aws-sdk/client-textract';
 import { generateId } from './utils';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import * as S3Reader from './s3-reader';
+import { AddressObject, ParsedMail, simpleParser } from 'mailparser';
+import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const textract = new TextractClient({});
 
@@ -17,6 +21,52 @@ export interface TextExtractorAsyncResult {
 export interface TextExtractorSyncResult {
   documentId: string;
   extraction: string[];
+}
+export class TextExtractorEmailResult {
+  messageId?: string | null;
+  date?: string | null;
+  from: string[] | null;
+  to: string[] | null;
+  cc: string[] | null;
+  bcc: string[] | null;
+  subject?: string | null;
+  body?: string | null;
+
+  constructor(parsed: ParsedMail) {
+    this.messageId = parsed.messageId || null;
+    this.date = parsed?.date?.toUTCString() || null;
+
+    this.from = Array.isArray(parsed.from)
+      ? parsed.from?.map((recipient: AddressObject) => recipient.text) || null
+      : parsed.from
+      ? [parsed.from.text]
+      : null;
+
+    this.to = Array.isArray(parsed.to)
+      ? parsed.to?.map((recipient: AddressObject) => recipient.text) || null
+      : parsed.to
+      ? [parsed.to.text]
+      : null;
+
+    this.cc = Array.isArray(parsed.cc)
+      ? parsed.cc?.map((recipient: AddressObject) => recipient.text) || null
+      : parsed.cc
+      ? [parsed.cc.text]
+      : null;
+
+    this.bcc = Array.isArray(parsed.bcc)
+      ? parsed.bcc?.map((recipient: AddressObject) => recipient.text) || null
+      : parsed.bcc
+      ? [parsed.bcc.text]
+      : null;
+
+    this.subject = parsed.subject || null;
+    this.body = parsed.text || null;
+  }
+
+  toDynamo(): Record<string, AttributeValue> {
+    return marshall(this, { convertClassInstanceToMap: true });
+  }
 }
 
 export interface TextractRecord {
@@ -36,6 +86,16 @@ export class TextExtractor {
 
   constructor(notify: { topicArn?: string; roleArn?: string }) {
     this.notify = notify;
+  }
+
+  async extractEmail(bucket: string, key: string) {
+    const fileString = await S3Reader.readFileAsString(bucket, key);
+    const parsed: ParsedMail = await simpleParser(fileString);
+    const documentId = uuid();
+    return {
+      documentId,
+      extraction: new TextExtractorEmailResult(parsed),
+    };
   }
 
   // Only for .jpg or .png files (for .pdf use async)
