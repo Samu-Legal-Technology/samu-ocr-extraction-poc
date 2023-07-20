@@ -16,7 +16,7 @@ export default class MedicalExtractor extends cdk.Stack {
   constructor(scope: Construct, id: string, props: MedicalExtractorProps) {
     super(scope, id);
 
-    const topic = new sns.Topic(this, 'MedicalDocumentText', {});
+    const medTopic = new sns.Topic(this, 'MedicalDocumentText', {});
 
     const sourceBucket = s3.Bucket.fromBucketName(
       this,
@@ -45,25 +45,25 @@ export default class MedicalExtractor extends cdk.Stack {
       'MedicalExtractor',
       {
         functionName: 'StartMedicalExtraction',
-        bundling: {
-          nodeModules: ['uuid'],
-        },
         environment: {
-          NOTIFICATION_TOPIC_ARN: topic.topicArn,
+          NOTIFICATION_TOPIC_ARN: medTopic.topicArn,
           NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
         },
       }
     );
     textExtractor.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['textract:StartDocumentTextDetection'],
+        actions: [
+          'textract:StartDocumentTextDetection',
+          'textract:StartExpenseAnalysis',
+        ],
         resources: ['*'],
       })
     );
     sourceBucket.grantRead(textExtractor);
 
-    topic.grantPublish(textractPublishingRole);
-    topic.addSubscription(
+    medTopic.grantPublish(textractPublishingRole);
+    medTopic.addSubscription(
       new subs.EmailSubscription('shem.sedrick@caylent.com')
     );
 
@@ -79,12 +79,47 @@ export default class MedicalExtractor extends cdk.Stack {
         resources: ['*'],
       })
     );
-    textSaver.addToRolePolicy(
+    const writeItemPolicy = new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+      resources: [props.docTable.arn.importValue],
+    });
+    textSaver.addToRolePolicy(writeItemPolicy);
+
+    const expenseSaver = new jsLambda.NodejsFunction(this, 'ExpenseSaver', {
+      timeout: cdk.Duration.seconds(15),
+      environment: {
+        DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+      },
+    });
+    expenseSaver.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
-        resources: [props.docTable.arn.importValue],
+        actions: ['textract:GetExpenseAnalysis'],
+        resources: ['*'],
       })
     );
-    topic.addSubscription(new subs.LambdaSubscription(textSaver));
+    expenseSaver.addToRolePolicy(writeItemPolicy);
+
+    medTopic.addSubscription(
+      new subs.LambdaSubscription(textSaver, {
+        filterPolicyWithMessageBody: {
+          API: sns.FilterOrPolicy.filter(
+            sns.SubscriptionFilter.stringFilter({
+              allowlist: ['StartDocumentTextDetection'],
+            })
+          ),
+        },
+      })
+    );
+    medTopic.addSubscription(
+      new subs.LambdaSubscription(expenseSaver, {
+        filterPolicyWithMessageBody: {
+          API: sns.FilterOrPolicy.filter(
+            sns.SubscriptionFilter.stringFilter({
+              allowlist: ['StartExpenseAnalysis'],
+            })
+          ),
+        },
+      })
+    );
   }
 }

@@ -10,21 +10,10 @@ import {
   PutItemCommand,
   ReturnValue,
 } from '@aws-sdk/client-dynamodb';
+import { TextractRecord } from './shared';
 
 const db = new DynamoDBClient({});
 const textract = new TextractClient({});
-
-interface TextractRecord {
-  JobId: string;
-  Status: string;
-  API: string;
-  JobTag: string;
-  Timestamp: number;
-  DocumentLocation: {
-    S3ObjectName: string;
-    S3Bucket: string;
-  };
-}
 
 async function getDocumentText(jobId: string): Promise<string[]> {
   let nextToken: string | undefined = undefined;

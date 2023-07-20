@@ -13,7 +13,7 @@
   "lint-staged": {
     "**/*.ts": [
       "prettier --write",
-      "tsc --noEmit"
+      "npx tsc --noEmit"
     ]
   },
   "devDependencies": {
