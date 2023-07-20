@@ -1,7 +1,6 @@
 import { Handler, SNSEvent } from 'aws-lambda';
-import { TextractRecord } from './shared';
 import { persist } from './dynamodb-persistor';
-import { TextExtractor } from './text-extractor';
+import { TextExtractor, TextractRecord } from './text-extractor';
 
 const extractor = new TextExtractor({});
 

@@ -6,10 +6,10 @@ import {
   GetExpenseAnalysisCommandOutput,
   TextractClient,
 } from '@aws-sdk/client-textract';
-import { TextractRecord } from './shared';
 import { sanitizeExpenseValue } from './utils';
 import { persist } from './dynamodb-persistor';
 import { sendExtractionMessage } from './reporter';
+import { TextractRecord } from './text-extractor';
 
 const textract = new TextractClient({});
 
