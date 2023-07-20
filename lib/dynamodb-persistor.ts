@@ -7,26 +7,24 @@ import {
 
 const db = new DynamoDBClient({});
 
-export class DynamoDBPersistor {
-  static async persist(
-    tableName: string | undefined,
-    docId: string,
-    item: PutItemInput['Item']
-  ): Promise<number | undefined> {
-    if (!tableName) throw new Error('Undefined table name');
+export const persist = async (
+  tableName: string | undefined,
+  docId: string,
+  item: PutItemInput['Item']
+): Promise<number | undefined> => {
+  if (!tableName) throw new Error('Undefined table name');
 
-    const res = await db.send(
-      new PutItemCommand({
-        TableName: tableName,
-        Item: {
-          documentId: {
-            S: docId,
-          },
-          ...item,
+  const res = await db.send(
+    new PutItemCommand({
+      TableName: tableName,
+      Item: {
+        documentId: {
+          S: docId,
         },
-        ReturnValues: ReturnValue.NONE,
-      })
-    );
-    return res.$metadata.httpStatusCode;
-  }
-}
+        ...item,
+      },
+      ReturnValues: ReturnValue.NONE,
+    })
+  );
+  return res.$metadata.httpStatusCode;
+};
