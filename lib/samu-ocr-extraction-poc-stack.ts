@@ -10,11 +10,14 @@ export interface TableAttributes {
   name: cdk.CfnOutput;
   arn: cdk.CfnOutput;
 }
+export interface TopicAttributes {
+  arn: cdk.CfnOutput;
+}
 
 export class SamuOcrExtractionPocStack extends cdk.Stack {
   readonly docTable: TableAttributes;
   readonly caseTable: TableAttributes;
-  readonly resultTopic: sns.Topic;
+  readonly resultTopic: TopicAttributes;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -38,10 +41,10 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
       // },
     });
 
-    const doneTopic = new sns.Topic(this, 'ExtractionResult', {});
+    const resultTopic = new sns.Topic(this, 'ExtractionResult', {});
     ['shem.sedrick@caylent.com', 'christian.angelone@caylent.com'].forEach(
       (email: string) =>
-        doneTopic.addSubscription(new subs.EmailSubscription(email))
+        resultTopic.addSubscription(new subs.EmailSubscription(email))
     );
 
     this.docTable = {
@@ -64,6 +67,11 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
         exportName: 'CaseInfoTableArn',
       }),
     };
-    this.resultTopic = doneTopic;
+    this.resultTopic = {
+      arn: new cdk.CfnOutput(this, 'ResultTopicArn', {
+        value: resultTopic.topicArn,
+        exportName: 'ResultTopicArn',
+      }),
+    };
   }
 }
