@@ -46,6 +46,7 @@ export default class CorrespondenceExtractor extends cdk.Stack {
 
     // Text extractor lambda
     const textExtractor = new jsLambda.NodejsFunction(this, 'text-extract', {
+      functionName: 'StartCorrespondenceExtraction',
       environment: {
         NOTIFICATION_TOPIC_ARN: topic.topicArn,
         NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,

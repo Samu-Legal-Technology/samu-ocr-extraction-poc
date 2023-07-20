@@ -41,7 +41,9 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
       // },
     });
 
-    const resultTopic = new sns.Topic(this, 'ExtractionResult', {});
+    const resultTopic = new sns.Topic(this, 'ExtractionResult', {
+      topicName: 'ExtractionResultNotification',
+    });
     ['shem.sedrick@caylent.com', 'christian.angelone@caylent.com'].forEach(
       (email: string) =>
         resultTopic.addSubscription(new subs.EmailSubscription(email))
