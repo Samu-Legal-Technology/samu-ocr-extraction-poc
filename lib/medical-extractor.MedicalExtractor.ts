@@ -32,7 +32,11 @@ export const handler: Handler = async (
       Name: event.key,
     },
   };
-  const extractTextJob = await extractor.asyncExtract(event.bucket, event.key);
+  const extractTextJob = await extractor.asyncExtract(
+    event.bucket,
+    event.key,
+    documentId
+  );
   const expenseJob = await textract.send(
     new StartExpenseAnalysisCommand({
       JobTag: documentId,

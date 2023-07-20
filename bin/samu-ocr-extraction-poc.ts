@@ -30,6 +30,7 @@ const sharedInfra = new SamuOcrExtractionPocStack(
 
 new MedicalExtractor(app, 'MedExtractorStack', {
   docTable: sharedInfra.docTable,
+  resultTopic: sharedInfra.resultTopic,
 });
 
 new CorrespondenceExtractor(app, 'CommsExtractorStack', {

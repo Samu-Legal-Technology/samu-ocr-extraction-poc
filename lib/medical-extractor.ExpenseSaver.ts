@@ -9,6 +9,7 @@ import {
 import { TextractRecord } from './shared';
 import { sanitizeExpenseValue } from './utils';
 import { persist } from './dynamodb-persistor';
+import { sendExtractionMessage } from './reporter';
 
 const textract = new TextractClient({});
 
@@ -118,7 +119,19 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     console.debug('Total', data.total);
     console.debug('Expenses', data.expenses);
 
-    return await saveExpenseData(docId, data);
+    await saveExpenseData(docId, data);
+    await sendExtractionMessage(
+      process.env.RESULT_TOPIC_ARN!,
+      {
+        documentId: docId,
+        jobId: jobData.JobId,
+      },
+      'Finished Extracting Medical Expenses',
+      `Medical Expenses have been extracted for document "${jobData.DocumentLocation.S3ObjectName}".
+The document has the following id: ${docId}
+The extraction job id is: ${jobData.JobId}
+`
+    );
   });
   return Promise.all(results);
 };

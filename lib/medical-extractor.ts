@@ -6,10 +6,14 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as jsLambda from 'aws-cdk-lib/aws-lambda-nodejs';
-import { TableAttributes } from './samu-ocr-extraction-poc-stack';
+import {
+  TableAttributes,
+  TopicAttributes,
+} from './samu-ocr-extraction-poc-stack';
 
 interface MedicalExtractorProps extends cdk.StackProps {
   docTable: TableAttributes;
+  resultTopic: TopicAttributes;
 }
 
 export default class MedicalExtractor extends cdk.Stack {
@@ -83,12 +87,17 @@ export default class MedicalExtractor extends cdk.Stack {
       actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
       resources: [props.docTable.arn.importValue],
     });
+    const writeResultMessagePolicy = new iam.PolicyStatement({
+      actions: ['sns:Publish'],
+      resources: [props.resultTopic.arn.importValue],
+    });
     textSaver.addToRolePolicy(writeItemPolicy);
 
     const expenseSaver = new jsLambda.NodejsFunction(this, 'ExpenseSaver', {
       timeout: cdk.Duration.seconds(15),
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        RESULT_TOPIC_ARN: props.resultTopic.arn.importValue,
       },
     });
     expenseSaver.addToRolePolicy(
@@ -98,6 +107,7 @@ export default class MedicalExtractor extends cdk.Stack {
       })
     );
     expenseSaver.addToRolePolicy(writeItemPolicy);
+    expenseSaver.addToRolePolicy(writeResultMessagePolicy);
 
     medTopic.addSubscription(
       new subs.LambdaSubscription(textSaver, {
