@@ -5,6 +5,7 @@ import {
   GetExpenseAnalysisCommand,
   GetExpenseAnalysisCommandOutput,
   TextractClient,
+  ExpenseField,
 } from '@aws-sdk/client-textract';
 import { sanitizeExpenseValue } from './utils';
 import { persist } from './dynamodb-persistor';
@@ -15,10 +16,12 @@ const textract = new TextractClient({});
 
 interface ExpenseData {
   total: number;
+  paid: number;
+  due: number;
   expenses: number[];
 }
 
-function parseDocumentTotal(rawTotal: string | undefined): number | undefined {
+function parseDocumentValue(rawTotal: string | undefined): number | undefined {
   if (rawTotal) {
     const parsed = parseFloat(sanitizeExpenseValue(rawTotal));
     console.debug('Parsed Total', parsed);
@@ -30,12 +33,30 @@ function parseDocumentTotal(rawTotal: string | undefined): number | undefined {
   return undefined;
 }
 
+function isFieldType(field: ExpenseField, type: string): boolean {
+  return field.Type?.Text?.toUpperCase() === type.toUpperCase();
+}
+
 function getDocumentTotal(document: ExpenseDocument): number | undefined {
-  const docTotal = document.SummaryFields?.find(
-    (field) => field.Type?.Text === 'TOTAL'
+  const docTotal = document.SummaryFields?.find((field) =>
+    isFieldType(field, 'TOTAL')
   )?.ValueDetection?.Text;
   console.debug('Unparsed total', docTotal);
-  return parseDocumentTotal(docTotal);
+  return parseDocumentValue(docTotal);
+}
+function getDocumentDue(document: ExpenseDocument): number | undefined {
+  const docDue = document.SummaryFields?.find((field) =>
+    isFieldType(field, 'AMOUNT_DUE')
+  )?.ValueDetection?.Text;
+  console.debug('Unparsed total', docDue);
+  return parseDocumentValue(docDue);
+}
+function getDocumentPaid(document: ExpenseDocument): number | undefined {
+  const docPaid = document.SummaryFields?.find((field) =>
+    isFieldType(field, 'AMOUNT_PAID')
+  )?.ValueDetection?.Text;
+  console.debug('Unparsed paid', docPaid);
+  return parseDocumentValue(docPaid);
 }
 
 function getIndividualExpenses(
@@ -58,6 +79,8 @@ async function getExpenseAnalysis(jobId: string) {
   let data: ExpenseData = {
     expenses: [],
     total: 0.0,
+    paid: 0.0,
+    due: 0.0,
   };
   let nextToken: string | undefined = undefined;
   do {
@@ -69,13 +92,17 @@ async function getExpenseAnalysis(jobId: string) {
     );
     nextToken = expenseResult.NextToken;
     const newData = expenseResult.ExpenseDocuments?.reduce(
-      ({ expenses, total }, doc) => {
+      ({ expenses, total, paid, due }, doc) => {
         const docTotal = getDocumentTotal(doc);
         console.debug('Doc total', docTotal);
+        const docPaid = getDocumentPaid(doc);
+        const docDue = getDocumentDue(doc);
         const lineItemExpenses = getIndividualExpenses(doc);
         console.debug('Doc expenses', lineItemExpenses);
         return {
           total: total + (docTotal ?? 0),
+          paid: paid + (docPaid ?? 0),
+          due: due + (docDue ?? 0),
           expenses: expenses.concat(lineItemExpenses ?? []),
         };
       },
@@ -93,7 +120,7 @@ async function getDocumentExpenses(jobId: string): Promise<ExpenseData> {
 
 async function saveExpenseData(
   docId: string,
-  { total, expenses }: ExpenseData
+  { total, expenses, paid, due }: ExpenseData
 ): Promise<number | undefined> {
   return await persist(process.env.DOC_INFO_TABLE_NAME, docId, {
     type: {
@@ -101,6 +128,12 @@ async function saveExpenseData(
     },
     totalExpenses: {
       N: total.toFixed(2),
+    },
+    totalPaid: {
+      N: paid.toFixed(2),
+    },
+    totalDue: {
+      N: due.toFixed(2),
     },
     expenses: {
       L: expenses.map((expense) => ({ N: expense.toFixed(2) })),
