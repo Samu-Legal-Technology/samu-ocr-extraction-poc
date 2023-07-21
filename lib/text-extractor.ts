@@ -1,4 +1,3 @@
-import { v4 as uuid } from 'uuid';
 import {
   DetectDocumentTextCommand,
   GetDocumentTextDetectionCommand,
@@ -6,6 +5,7 @@ import {
   StartDocumentTextDetectionCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
+import { generateId } from './utils';
 
 const textract = new TextractClient({});
 
@@ -43,7 +43,7 @@ export class TextExtractor {
     bucket: string,
     key: string
   ): Promise<TextExtractorSyncResult> {
-    const documentId = uuid();
+    const documentId = generateId(key);
     const extraction = await textract.send(
       new DetectDocumentTextCommand({
         Document: {
@@ -68,13 +68,14 @@ export class TextExtractor {
 
   async asyncExtract(
     bucket: string,
-    key: string
+    key: string,
+    documentId?: string
   ): Promise<TextExtractorAsyncResult> {
     if (!this.notify.roleArn) throw Error('Missing notify roleArn');
 
     if (!this.notify.topicArn) throw Error('Missing notify topicArn');
 
-    const documentId = uuid();
+    const id = documentId ?? generateId(key);
 
     const extractTextJob = await textract.send(
       new StartDocumentTextDetectionCommand({
@@ -84,12 +85,12 @@ export class TextExtractor {
             Name: key,
           },
         },
-        ClientRequestToken: documentId,
+        ClientRequestToken: id,
         NotificationChannel: {
           RoleArn: this.notify.roleArn,
           SNSTopicArn: this.notify.topicArn,
         },
-        JobTag: documentId,
+        JobTag: id,
       })
     );
     return {
