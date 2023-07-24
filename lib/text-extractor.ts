@@ -65,7 +65,7 @@ export class TextExtractorEmailResult {
   }
 
   toDynamo(): Record<string, AttributeValue> {
-    return marshall(this, { convertClassInstanceToMap: true });
+    return Utils.toDynamo(this);
   }
 }
 
@@ -86,6 +86,16 @@ export class TextExtractor {
 
   constructor(notify: { topicArn?: string; roleArn?: string }) {
     this.notify = notify;
+  }
+
+  async extractJSON(bucket: string, key: string) {
+    const fileString = await S3Reader.readFileAsString(bucket, key);
+    const json = JSON.parse(fileString);
+    const documentId = Utils.generateId(key);
+    return {
+      documentId,
+      extraction: json,
+    };
   }
 
   async extractEmail(bucket: string, key: string) {

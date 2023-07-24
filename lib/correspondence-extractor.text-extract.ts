@@ -22,8 +22,8 @@ export const handler: Handler = async (
       process.env.DOC_INFO_TABLE_NAME,
       documentId,
       {
-        from: { S: 'correspondence' },
-        type: { S: 'email' },
+        type: { S: 'correspondence' },
+        subtype: { S: 'email' },
         extraction: {
           M: extraction.toDynamo(),
         },
@@ -32,6 +32,43 @@ export const handler: Handler = async (
 
     return {
       result: 'Email processed',
+      extra: {
+        dynanoDbStatus: status,
+      },
+    };
+  }
+
+  if (event.key.endsWith('.json')) {
+    console.log('Assuming JSON file is a transcript')
+    const { documentId, extraction } = await extractor.extractJSON(
+      event.bucket,
+      event.key
+    );
+
+    const transcript = extraction.Transcript.map((t: any) => (
+      {
+        M: {
+          text: { S: t.Content },
+          sentiment: { S: t.Sentiment },
+          participant: { S: t.ParticipantId },
+        }
+      }
+    ))
+
+    const status = await DynamoDBPersistor.persist(
+      process.env.DOC_INFO_TABLE_NAME,
+      documentId,
+      {
+        type: { S: 'correspondence' },
+        subtype: { S: 'transcript' },
+        extraction: {
+          L: transcript,
+        },
+      }
+    );
+
+    return {
+      result: 'Transcript processed',
       extra: {
         dynanoDbStatus: status,
       },
