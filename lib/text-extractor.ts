@@ -1,3 +1,4 @@
+import * as Utils from "./utils";
 import {
   DetectDocumentTextCommand,
   GetDocumentTextDetectionCommand,
@@ -5,7 +6,6 @@ import {
   StartDocumentTextDetectionCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
-import { generateId } from './utils';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import * as S3Reader from './s3-reader';
 import { AddressObject, ParsedMail, simpleParser } from 'mailparser';
@@ -91,7 +91,7 @@ export class TextExtractor {
   async extractEmail(bucket: string, key: string) {
     const fileString = await S3Reader.readFileAsString(bucket, key);
     const parsed: ParsedMail = await simpleParser(fileString);
-    const documentId = uuid();
+    const documentId = Utils.generateId(key);
     return {
       documentId,
       extraction: new TextExtractorEmailResult(parsed),
@@ -103,7 +103,7 @@ export class TextExtractor {
     bucket: string,
     key: string
   ): Promise<TextExtractorSyncResult> {
-    const documentId = generateId(key);
+    const documentId = Utils.generateId(key);
     const extraction = await textract.send(
       new DetectDocumentTextCommand({
         Document: {
@@ -135,7 +135,7 @@ export class TextExtractor {
 
     if (!this.notify.topicArn) throw Error('Missing notify topicArn');
 
-    const id = documentId ?? generateId(key);
+    const id = documentId ?? Utils.generateId(key);
 
     const extractTextJob = await textract.send(
       new StartDocumentTextDetectionCommand({
