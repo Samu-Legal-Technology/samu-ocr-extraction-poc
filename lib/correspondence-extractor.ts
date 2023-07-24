@@ -50,6 +50,7 @@ export default class CorrespondenceExtractor extends cdk.Stack {
       environment: {
         NOTIFICATION_TOPIC_ARN: topic.topicArn,
         NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
+        DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
       },
     });
 
@@ -57,6 +58,13 @@ export default class CorrespondenceExtractor extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ['textract:StartDocumentTextDetection'],
         resources: ['*'],
+      })
+    );
+
+    textExtractor.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+        resources: [props.docTable.arn.importValue],
       })
     );
 
