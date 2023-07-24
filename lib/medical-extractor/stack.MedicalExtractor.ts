@@ -1,12 +1,12 @@
 import { Handler } from 'aws-lambda';
-import { TriggerEvent } from './shared';
+import { TriggerEvent } from '../shared';
 import {
   StartExpenseAnalysisCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
 import * as crypto from 'crypto';
-import { TextExtractor } from './text-extractor';
-import { generateId } from './utils';
+import { TextExtractor } from '../text-extractor';
+import { generateId } from '../utils';
 
 const textract = new TextractClient({});
 const extractor = new TextExtractor({
@@ -32,22 +32,20 @@ export const handler: Handler = async (
       Name: event.key,
     },
   };
-  const extractTextJob = await extractor.asyncExtract(
-    event.bucket,
-    event.key,
-    documentId
-  );
-  const expenseJob = await textract.send(
-    new StartExpenseAnalysisCommand({
-      JobTag: documentId,
-      DocumentLocation: docLocation,
-      NotificationChannel: {
-        RoleArn: process.env.NOTIFICATION_ROLE_ARN,
-        SNSTopicArn: process.env.NOTIFICATION_TOPIC_ARN,
-      },
-      ClientRequestToken: documentId,
-    })
-  );
+  const [extractTextJob, expenseJob] = await Promise.all([
+    extractor.asyncExtract(event.bucket, event.key, documentId),
+    textract.send(
+      new StartExpenseAnalysisCommand({
+        JobTag: documentId,
+        DocumentLocation: docLocation,
+        NotificationChannel: {
+          RoleArn: process.env.NOTIFICATION_ROLE_ARN,
+          SNSTopicArn: process.env.NOTIFICATION_TOPIC_ARN,
+        },
+        ClientRequestToken: documentId,
+      })
+    ),
+  ]);
   return {
     documentId,
     detectTextJobId: extractTextJob.jobId,

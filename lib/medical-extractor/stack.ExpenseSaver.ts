@@ -7,10 +7,10 @@ import {
   TextractClient,
   ExpenseField,
 } from '@aws-sdk/client-textract';
-import { sanitizeExpenseValue } from './utils';
-import { persist } from './dynamodb-persistor';
-import { sendExtractionMessage } from './reporter';
-import { TextractRecord } from './text-extractor';
+import { sanitizeExpenseValue } from '../utils';
+import { persist } from '../dynamodb-persistor';
+import { sendExtractionMessage } from '../reporter';
+import { TextractRecord } from '../text-extractor';
 
 const textract = new TextractClient({});
 

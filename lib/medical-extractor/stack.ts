@@ -7,13 +7,16 @@ import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as jsLambda from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
+  BucketAttributes,
   TableAttributes,
   TopicAttributes,
-} from './samu-ocr-extraction-poc-stack';
+} from '../samu-ocr-extraction-poc-stack';
+import OntologyStateMachine from './ontologies/state-machine';
 
 interface MedicalExtractorProps extends cdk.StackProps {
   docTable: TableAttributes;
   resultTopic: TopicAttributes;
+  resultsBucket: BucketAttributes;
 }
 
 export default class MedicalExtractor extends cdk.Stack {
@@ -26,6 +29,11 @@ export default class MedicalExtractor extends cdk.Stack {
       this,
       'SourceBucket',
       'clientanalysis'
+    );
+    const resultBucket = s3.Bucket.fromBucketName(
+      this,
+      'ResultsBucket',
+      props.resultsBucket.name.importValue
     );
 
     const textractPublishingRole = new iam.Role(
@@ -44,18 +52,45 @@ export default class MedicalExtractor extends cdk.Stack {
         }),
       }
     );
-    const textExtractor = new jsLambda.NodejsFunction(
+    const comprehendAccessRole = new iam.Role(
       this,
-      'MedicalExtractor',
+      'ComprehendSharedAccessRole',
       {
-        functionName: 'StartMedicalExtraction',
-        environment: {
-          NOTIFICATION_TOPIC_ARN: medTopic.topicArn,
-          NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
-        },
+        assumedBy: new iam.CompositePrincipal(
+          new iam.ServicePrincipal('comprehend.amazonaws.com', {
+            conditions: {
+              ArnLike: {
+                'aws:SourceArn': `arn:aws:comprehend:*:${this.account}:*`,
+              },
+              StringEquals: {
+                'aws:SourceAccount': this.account,
+              },
+            },
+          }),
+          new iam.ServicePrincipal('comprehendmedical.amazonaws.com', {
+            conditions: {
+              ArnLike: {
+                'aws:SourceArn': `arn:aws:comprehendmedical:*:${this.account}:*`,
+              },
+              StringEquals: {
+                'aws:SourceAccount': this.account,
+              },
+            },
+          })
+        ),
       }
     );
-    textExtractor.addToRolePolicy(
+    sourceBucket.grantRead(comprehendAccessRole);
+    resultBucket.grantPut(comprehendAccessRole);
+
+    const medExtractor = new jsLambda.NodejsFunction(this, 'MedicalExtractor', {
+      functionName: 'StartMedicalExtraction',
+      environment: {
+        NOTIFICATION_TOPIC_ARN: medTopic.topicArn,
+        NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
+      },
+    });
+    medExtractor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
           'textract:StartDocumentTextDetection',
@@ -64,22 +99,44 @@ export default class MedicalExtractor extends cdk.Stack {
         resources: ['*'],
       })
     );
-    sourceBucket.grantRead(textExtractor);
+    sourceBucket.grantRead(medExtractor);
 
     medTopic.grantPublish(textractPublishingRole);
-    medTopic.addSubscription(
-      new subs.EmailSubscription('shem.sedrick@caylent.com')
+
+    const billingCodeSaver = new jsLambda.NodejsFunction(
+      this,
+      'ICD10CodeSaver',
+      {}
+    );
+
+    const ontologyMachine = new OntologyStateMachine(
+      this,
+      'OntologyExtraction',
+      {
+        functions: {
+          ICD10Saver: billingCodeSaver,
+        },
+        roles: {
+          dataAccess: comprehendAccessRole,
+        },
+        storageBucket: props.resultsBucket.name.importValue,
+      }
     );
 
     const textSaver = new jsLambda.NodejsFunction(this, 'TextSaver', {
       timeout: cdk.Duration.seconds(30),
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        STORAGE_BUCKET: resultBucket.bucketName,
+        STATE_MACHINE_ARN: ontologyMachine.getArn(),
       },
     });
     textSaver.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['textract:GetDocumentTextDetection'],
+        actions: [
+          'textract:GetDocumentTextDetection',
+          'comprehendmedical:StartICD10InferenceJob',
+        ],
         resources: ['*'],
       })
     );
@@ -92,6 +149,7 @@ export default class MedicalExtractor extends cdk.Stack {
       resources: [props.resultTopic.arn.importValue],
     });
     textSaver.addToRolePolicy(writeItemPolicy);
+    resultBucket.grantPut(textSaver);
 
     const expenseSaver = new jsLambda.NodejsFunction(this, 'ExpenseSaver', {
       timeout: cdk.Duration.seconds(15),
@@ -109,6 +167,9 @@ export default class MedicalExtractor extends cdk.Stack {
     expenseSaver.addToRolePolicy(writeItemPolicy);
     expenseSaver.addToRolePolicy(writeResultMessagePolicy);
 
+    medTopic.addSubscription(
+      new subs.EmailSubscription('shem.sedrick@caylent.com')
+    );
     medTopic.addSubscription(
       new subs.LambdaSubscription(textSaver, {
         filterPolicyWithMessageBody: {
@@ -129,6 +190,17 @@ export default class MedicalExtractor extends cdk.Stack {
             })
           ),
         },
+      })
+    );
+    medTopic.addSubscription(
+      new subs.LambdaSubscription(billingCodeSaver, {
+        // filterPolicyWithMessageBody: {
+        //   API: sns.FilterOrPolicy.filter(
+        //     sns.SubscriptionFilter.stringFilter({
+        //       allowlist: ['StartExpenseAnalysis'],
+        //     })
+        //   ),
+        // },
       })
     );
   }

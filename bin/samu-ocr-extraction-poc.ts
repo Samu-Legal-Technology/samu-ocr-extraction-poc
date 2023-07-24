@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { SamuOcrExtractionPocStack } from '../lib/samu-ocr-extraction-poc-stack';
-import MedicalExtractor from '../lib/medical-extractor';
+import MedicalExtractor from '../lib/medical-extractor/stack';
 import CorrespondenceExtractor from '../lib/correspondence-extractor';
 
 const app = new cdk.App();
@@ -31,6 +31,7 @@ const sharedInfra = new SamuOcrExtractionPocStack(
 new MedicalExtractor(app, 'MedExtractorStack', {
   docTable: sharedInfra.docTable,
   resultTopic: sharedInfra.resultTopic,
+  resultsBucket: sharedInfra.resultsBucket,
 });
 
 new CorrespondenceExtractor(app, 'CommsExtractorStack', {
