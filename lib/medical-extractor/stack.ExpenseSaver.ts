@@ -7,23 +7,31 @@ import {
   TextractClient,
   ExpenseField,
 } from '@aws-sdk/client-textract';
-import { sanitizeExpenseValue } from '../utils';
 import * as db from '../dynamodb-persistor';
+import * as Utils from '../utils';
 import { sendExtractionMessage } from '../reporter';
 import { TextractRecord } from '../text-extractor';
+import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const textract = new TextractClient({});
+
+interface Expense {
+  price: number;
+  productCode: string | undefined;
+  description: string | undefined;
+  unitPrice: number | undefined;
+}
 
 interface ExpenseData {
   total: number;
   paid: number;
   due: number;
-  expenses: number[];
+  expenses: Expense[];
 }
 
 function parseDocumentValue(rawTotal: string | undefined): number | undefined {
   if (rawTotal) {
-    const parsed = parseFloat(sanitizeExpenseValue(rawTotal));
+    const parsed = parseFloat(Utils.sanitizeExpenseValue(rawTotal));
     console.debug('Parsed Total', parsed);
     if (!isNaN(parsed)) {
       return parsed;
@@ -36,6 +44,8 @@ function parseDocumentValue(rawTotal: string | undefined): number | undefined {
 function isFieldType(field: ExpenseField, type: string): boolean {
   return field.Type?.Text?.toUpperCase() === type.toUpperCase();
 }
+const filterFields = (type: string) => (field: ExpenseField) =>
+  isFieldType(field, type);
 
 function getDocumentTotal(document: ExpenseDocument): number | undefined {
   const docTotal = document.SummaryFields?.find((field) =>
@@ -59,20 +69,33 @@ function getDocumentPaid(document: ExpenseDocument): number | undefined {
   return parseDocumentValue(docPaid);
 }
 
+function parseFieldText(field?: ExpenseField): number | undefined {
+  return parseFloat(Utils.sanitizeExpenseValue(field?.ValueDetection?.Text!));
+}
+
+function getItemText(item: LineItemFields, type: string): string | undefined {
+  return item.LineItemExpenseFields?.find(filterFields(type))?.ValueDetection
+    ?.Text;
+}
+
 function getIndividualExpenses(
   document: ExpenseDocument
-): number[] | undefined {
+): Expense[] | undefined {
   return document.LineItemGroups?.map(
     (group) =>
-      group.LineItems?.map(
-        (lineItem: LineItemFields) =>
-          lineItem.LineItemExpenseFields?.find(
-            (field) => field.Type?.Text === 'PRICE'
-          )?.ValueDetection?.Text
-      )
+      group.LineItems?.map((lineItem: LineItemFields) => ({
+        price: parseFieldText(
+          lineItem.LineItemExpenseFields?.find(filterFields('PRICE'))
+        )!,
+        productCode: getItemText(lineItem, 'PRODUCT_CODE'),
+        description: getItemText(lineItem, 'ITEM'),
+        unitPrice: parseFieldText(
+          lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
+        ),
+      }))
   )
     .flat()
-    .map((val) => parseFloat(sanitizeExpenseValue(val!)));
+    .filter((expense): expense is Expense => !!expense);
 }
 
 async function getExpenseAnalysis(jobId: string) {
@@ -136,7 +159,31 @@ async function saveExpenseData(
       N: due.toFixed(2),
     },
     expenses: {
-      L: expenses.map((expense) => ({ N: expense.toFixed(2) })),
+      L: expenses.map((expense) => {
+        const result: Record<string, AttributeValue> = {
+          price: {
+            N: expense.price.toFixed(2),
+          },
+        };
+        if (expense.productCode) {
+          result.productCode = {
+            S: expense.productCode,
+          };
+        }
+        if (expense.description) {
+          result.description = {
+            S: expense.description,
+          };
+        }
+        if (expense.unitPrice) {
+          result.unitPrice = {
+            N: expense.unitPrice.toFixed(2),
+          };
+        }
+        return {
+          M: result,
+        };
+      }),
     },
   });
 }
