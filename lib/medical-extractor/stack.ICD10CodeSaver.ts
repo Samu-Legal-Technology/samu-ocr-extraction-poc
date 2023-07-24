@@ -18,8 +18,10 @@ export const handler: Handler = async (event: {
   if (outputConfig) {
     const files = await S3Helper.getFilesForPrefix(
       outputConfig.S3Bucket!,
-      outputConfig.S3Key!
+      outputConfig.S3Key!,
+      (key: string) => !key.includes('Manifest')
     );
+    console.debug('loaded files', files);
     files?.map((file) => {
       const json = JSON.parse(file) as { Entities: ICD10CMEntity[] };
       console.debug('Parsed file: ', json);

@@ -24,7 +24,7 @@ export default class OntologyStateMachine extends Construct {
     const ICD10_JOB_STATUS_PATH =
       '$.icd10Job.status.ComprehendMedicalAsyncJobProperties.JobStatus';
     const icd10Waiter = new sfn.Wait(this, 'WaitForICD10', {
-      time: sfn.WaitTime.duration(cdk.Duration.seconds(30)),
+      time: sfn.WaitTime.duration(cdk.Duration.minutes(2)),
     })
       .next(
         new tasks.CallAwsService(this, 'ICD10JobStatus', {

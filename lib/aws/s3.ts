@@ -52,7 +52,8 @@ export const readFileAsString = async (
 
 export async function getFilesForPrefix(
   bucketName: string,
-  prefix: string
+  prefix: string,
+  keyFilter?: (key: string) => boolean
 ): Promise<string[] | undefined> {
   const res = await s3.send(
     new ListObjectsV2Command({
@@ -60,9 +61,10 @@ export async function getFilesForPrefix(
       Prefix: prefix,
     })
   );
+  console.debug('Listed objects', res);
   return Promise.all(
-    (res.Contents ?? []).map(
-      async (object) => await readFileAsString(bucketName, object.Key!)
-    )
+    (res.Contents ?? [])
+      .filter((obj) => (keyFilter && obj.Key ? keyFilter(obj.Key) : true))
+      .map(async (object) => await readFileAsString(bucketName, object.Key!))
   );
 }
