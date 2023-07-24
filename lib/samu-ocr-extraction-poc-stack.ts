@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamo from 'aws-cdk-lib/aws-dynamodb';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
-import MedicalExtractor from './medical-extractor';
+import MedicalExtractor from './medical-extractor/stack';
 import CorrespondenceExtractor from './correspondence-extractor';
 
 export interface TableAttributes {
@@ -13,11 +14,15 @@ export interface TableAttributes {
 export interface TopicAttributes {
   arn: cdk.CfnOutput;
 }
+export interface BucketAttributes {
+  name: cdk.CfnOutput;
+}
 
 export class SamuOcrExtractionPocStack extends cdk.Stack {
   readonly docTable: TableAttributes;
   readonly caseTable: TableAttributes;
   readonly resultTopic: TopicAttributes;
+  readonly resultsBucket: BucketAttributes;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -40,6 +45,8 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
       //   name: "caseId",
       // },
     });
+
+    const rawResults = new s3.Bucket(this, 'RawExtractionResults', {});
 
     const resultTopic = new sns.Topic(this, 'ExtractionResult', {
       topicName: 'ExtractionResultNotification',
@@ -73,6 +80,12 @@ export class SamuOcrExtractionPocStack extends cdk.Stack {
       arn: new cdk.CfnOutput(this, 'ResultTopicArn', {
         value: resultTopic.topicArn,
         exportName: 'ResultTopicArn',
+      }),
+    };
+    this.resultsBucket = {
+      name: new cdk.CfnOutput(this, 'ResultsBucketName', {
+        value: rawResults.bucketName,
+        exportName: 'ResultsBucketName',
       }),
     };
   }

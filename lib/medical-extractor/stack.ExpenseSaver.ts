@@ -7,10 +7,10 @@ import {
   TextractClient,
   ExpenseField,
 } from '@aws-sdk/client-textract';
-import { sanitizeExpenseValue } from './utils';
-import { persist } from './dynamodb-persistor';
-import { sendExtractionMessage } from './reporter';
-import { TextractRecord } from './text-extractor';
+import { sanitizeExpenseValue } from '../utils';
+import * as db from '../dynamodb-persistor';
+import { sendExtractionMessage } from '../reporter';
+import { TextractRecord } from '../text-extractor';
 
 const textract = new TextractClient({});
 
@@ -122,7 +122,7 @@ async function saveExpenseData(
   docId: string,
   { total, expenses, paid, due }: ExpenseData
 ): Promise<number | undefined> {
-  return await persist(process.env.DOC_INFO_TABLE_NAME, docId, {
+  return await db.update(process.env.DOC_INFO_TABLE_NAME, docId, {
     type: {
       S: 'medical',
     },
