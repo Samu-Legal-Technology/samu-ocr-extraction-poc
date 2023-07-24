@@ -1,4 +1,4 @@
-import * as Utils from "./utils";
+import * as Utils from './utils';
 import {
   DetectDocumentTextCommand,
   GetDocumentTextDetectionCommand,
@@ -6,8 +6,7 @@ import {
   StartDocumentTextDetectionCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
-import { marshall } from '@aws-sdk/util-dynamodb';
-import * as S3Reader from './s3-reader';
+import * as S3Helper from './aws/s3';
 import { AddressObject, ParsedMail, simpleParser } from 'mailparser';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
@@ -89,7 +88,7 @@ export class TextExtractor {
   }
 
   async extractJSON(bucket: string, key: string) {
-    const fileString = await S3Reader.readFileAsString(bucket, key);
+    const fileString = await S3Helper.readFileAsString(bucket, key);
     const json = JSON.parse(fileString);
     const documentId = Utils.generateId(key);
     return {
@@ -99,7 +98,7 @@ export class TextExtractor {
   }
 
   async extractEmail(bucket: string, key: string) {
-    const fileString = await S3Reader.readFileAsString(bucket, key);
+    const fileString = await S3Helper.readFileAsString(bucket, key);
     const parsed: ParsedMail = await simpleParser(fileString);
     const documentId = Utils.generateId(key);
     return {
@@ -155,7 +154,7 @@ export class TextExtractor {
             Name: key,
           },
         },
-        ClientRequestToken: id,
+        // ClientRequestToken: id,
         NotificationChannel: {
           RoleArn: this.notify.roleArn,
           SNSTopicArn: this.notify.topicArn,

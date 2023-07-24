@@ -3,6 +3,7 @@ import {
   PutItemCommand,
   PutItemInput,
   ReturnValue,
+  UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 
 const db = new DynamoDBClient({});
@@ -23,6 +24,38 @@ export const persist = async (
         },
         ...item,
       },
+      ReturnValues: ReturnValue.NONE,
+    })
+  );
+  return res.$metadata.httpStatusCode;
+};
+
+export const update = async (
+  tableName: string | undefined,
+  docId: string,
+  item: NonNullable<PutItemInput['Item']>
+): Promise<number | undefined> => {
+  if (!tableName) throw new Error('Undefined table name');
+
+  const updates = Object.keys(item!).reduce(
+    (attrs, key) => ({
+      ...attrs,
+      [key]: {
+        Action: 'PUT',
+        Value: item[key],
+      },
+    }),
+    {}
+  );
+  const res = await db.send(
+    new UpdateItemCommand({
+      TableName: tableName,
+      Key: {
+        documentId: {
+          S: docId,
+        },
+      },
+      AttributeUpdates: updates,
       ReturnValues: ReturnValue.NONE,
     })
   );

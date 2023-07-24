@@ -21,15 +21,16 @@ export default class OntologyStateMachine extends Construct {
     super(scope, id);
 
     const icd10Chooser = new sfn.Choice(this, 'IsIcd10Done', {});
-    const ICD10_JOB_STATUS_PATH = '$.icd10Job.status.JobStatus';
+    const ICD10_JOB_STATUS_PATH =
+      '$.icd10Job.status.ComprehendMedicalAsyncJobProperties.JobStatus';
     const icd10Waiter = new sfn.Wait(this, 'WaitForICD10', {
-      time: sfn.WaitTime.duration(cdk.Duration.seconds(3)),
+      time: sfn.WaitTime.duration(cdk.Duration.seconds(30)),
     })
       .next(
         new tasks.CallAwsService(this, 'ICD10JobStatus', {
           service: 'comprehendmedical',
           action: 'describeICD10CMInferenceJob',
-          // iamAction: 'comprehendmedical:DescribeICD10CMInferenceJob',
+          iamAction: 'comprehendmedical:DescribeICD10CMInferenceJob',
           iamResources: ['*'],
           parameters: {
             JobId: sfn.JsonPath.stringAt('$.icd10Job.JobId'),
@@ -59,19 +60,25 @@ export default class OntologyStateMachine extends Construct {
     const icd10 = new tasks.CallAwsService(this, 'InferICD10', {
       service: 'comprehendmedical',
       action: 'startICD10CMInferenceJob',
-      // iamAction: 'comprehendmedical:StartICD10CMInferenceJob',
+      iamAction: 'comprehendmedical:StartICD10CMInferenceJob',
       iamResources: ['*'],
       parameters: {
-        InputDataConfig: sfn.JsonPath.objectAt('$.location'),
+        InputDataConfig: {
+          S3Bucket: sfn.JsonPath.objectAt('$.location.bucket'),
+          S3Key: sfn.JsonPath.objectAt('$.location.prefix'),
+        },
         OutputDataConfig: {
           S3Bucket: props.storageBucket,
           S3Key: sfn.JsonPath.format(
             '{}/comprehendmedical/icd10',
-            '$.documentId'
+            sfn.JsonPath.stringAt('$.documentId')
           ),
         },
         DataAccessRoleArn: props.roles.dataAccess.roleArn,
-        JobName: sfn.JsonPath.format('ICD10-{}', '$.documentId'),
+        JobName: sfn.JsonPath.format(
+          'ICD10_{}',
+          sfn.JsonPath.stringAt('$.documentId')
+        ),
         LanguageCode: 'en',
       },
       resultPath: '$.icd10Job',
@@ -81,6 +88,7 @@ export default class OntologyStateMachine extends Construct {
     this.machine = new sfn.StateMachine(this, 'OntologyStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(split),
     });
+    props.roles.dataAccess.grantPassRole(this.machine.role);
   }
 
   getArn(): string {

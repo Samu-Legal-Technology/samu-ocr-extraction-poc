@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 
 const s3 = new S3Client({});
 
@@ -7,6 +12,7 @@ const BUCKET = process.env.STORAGE_BUCKET!;
 export interface S3Location {
   bucket: string;
   key: string;
+  prefix: string;
 }
 
 export async function saveText(
@@ -20,8 +26,43 @@ export async function saveText(
       Body: contents,
     })
   );
+  const parts = key.split('/');
+  parts.pop();
   return {
     bucket: BUCKET,
     key: key,
+    prefix: parts.join('/'),
   };
+}
+
+export const readFileAsString = async (
+  bucketName: string,
+  key: string
+): Promise<string> => {
+  const response = await s3.send(
+    new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    })
+  );
+
+  const str = (await response?.Body?.transformToString()) || '';
+  return str;
+};
+
+export async function getFilesForPrefix(
+  bucketName: string,
+  prefix: string
+): Promise<string[] | undefined> {
+  const res = await s3.send(
+    new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: prefix,
+    })
+  );
+  return Promise.all(
+    (res.Contents ?? []).map(
+      async (object) => await readFileAsString(bucketName, object.Key!)
+    )
+  );
 }

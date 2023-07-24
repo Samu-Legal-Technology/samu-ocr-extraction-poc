@@ -7,6 +7,7 @@ import {
 import * as crypto from 'crypto';
 import { TextExtractor } from '../text-extractor';
 import { generateId } from '../utils';
+import * as db from '../dynamodb-persistor';
 
 const textract = new TextractClient({});
 const extractor = new TextExtractor({
@@ -18,6 +19,15 @@ interface Result {
   documentId: string;
   detectTextJobId?: string;
   analyseExpenseJobId?: string;
+}
+
+function getJobId(
+  result: PromiseSettledResult<{ jobId?: string; JobId?: string }>
+): string {
+  if (result.status === 'fulfilled') {
+    return result.value.jobId ?? result.value.JobId ?? 'NoJobId';
+  }
+  return result.reason;
 }
 
 export const handler: Handler = async (
@@ -32,7 +42,19 @@ export const handler: Handler = async (
       Name: event.key,
     },
   };
-  const [extractTextJob, expenseJob] = await Promise.all([
+  const saveInitial = await db.persist(
+    process.env.DOC_INFO_TABLE_NAME,
+    documentId,
+    {
+      type: {
+        S: 'medical',
+      },
+      originalFile: {
+        S: event.key,
+      },
+    }
+  );
+  const [extractTextJob, expenseJob] = await Promise.allSettled([
     extractor.asyncExtract(event.bucket, event.key, documentId),
     textract.send(
       new StartExpenseAnalysisCommand({
@@ -42,13 +64,13 @@ export const handler: Handler = async (
           RoleArn: process.env.NOTIFICATION_ROLE_ARN,
           SNSTopicArn: process.env.NOTIFICATION_TOPIC_ARN,
         },
-        ClientRequestToken: documentId,
+        // ClientRequestToken: documentId,
       })
     ),
   ]);
   return {
     documentId,
-    detectTextJobId: extractTextJob.jobId,
-    analyseExpenseJobId: expenseJob.JobId,
+    detectTextJobId: getJobId(extractTextJob),
+    analyseExpenseJobId: getJobId(expenseJob),
   };
 };

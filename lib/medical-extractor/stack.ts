@@ -69,25 +69,39 @@ export default class MedicalExtractor extends cdk.Stack {
           }),
           new iam.ServicePrincipal('comprehendmedical.amazonaws.com', {
             conditions: {
-              ArnLike: {
-                'aws:SourceArn': `arn:aws:comprehendmedical:*:${this.account}:*`,
-              },
-              StringEquals: {
-                'aws:SourceAccount': this.account,
-              },
+              // ArnLike: {
+              //   'aws:SourceArn': `arn:aws:comprehendmedical:*:${this.account}:*`,
+              // },
+              // StringEquals: {
+              //   'aws:SourceAccount': this.account,
+              // },
             },
           })
         ),
       }
     );
-    sourceBucket.grantRead(comprehendAccessRole);
-    resultBucket.grantPut(comprehendAccessRole);
+    comprehendAccessRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject', 's3:ListBucket', 's3:PutObject'],
+        resources: [resultBucket.arnForObjects('*'), resultBucket.bucketArn],
+      })
+    );
+
+    const writeItemPolicy = new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+      resources: [props.docTable.arn.importValue],
+    });
+    const writeResultMessagePolicy = new iam.PolicyStatement({
+      actions: ['sns:Publish'],
+      resources: [props.resultTopic.arn.importValue],
+    });
 
     const medExtractor = new jsLambda.NodejsFunction(this, 'MedicalExtractor', {
       functionName: 'StartMedicalExtraction',
       environment: {
         NOTIFICATION_TOPIC_ARN: medTopic.topicArn,
         NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
+        DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
       },
     });
     medExtractor.addToRolePolicy(
@@ -99,6 +113,7 @@ export default class MedicalExtractor extends cdk.Stack {
         resources: ['*'],
       })
     );
+    medExtractor.addToRolePolicy(writeItemPolicy);
     sourceBucket.grantRead(medExtractor);
 
     medTopic.grantPublish(textractPublishingRole);
@@ -140,16 +155,9 @@ export default class MedicalExtractor extends cdk.Stack {
         resources: ['*'],
       })
     );
-    const writeItemPolicy = new iam.PolicyStatement({
-      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
-      resources: [props.docTable.arn.importValue],
-    });
-    const writeResultMessagePolicy = new iam.PolicyStatement({
-      actions: ['sns:Publish'],
-      resources: [props.resultTopic.arn.importValue],
-    });
     textSaver.addToRolePolicy(writeItemPolicy);
     resultBucket.grantPut(textSaver);
+    ontologyMachine.machine.grantStartExecution(textSaver);
 
     const expenseSaver = new jsLambda.NodejsFunction(this, 'ExpenseSaver', {
       timeout: cdk.Duration.seconds(15),
@@ -190,17 +198,6 @@ export default class MedicalExtractor extends cdk.Stack {
             })
           ),
         },
-      })
-    );
-    medTopic.addSubscription(
-      new subs.LambdaSubscription(billingCodeSaver, {
-        // filterPolicyWithMessageBody: {
-        //   API: sns.FilterOrPolicy.filter(
-        //     sns.SubscriptionFilter.stringFilter({
-        //       allowlist: ['StartExpenseAnalysis'],
-        //     })
-        //   ),
-        // },
       })
     );
   }

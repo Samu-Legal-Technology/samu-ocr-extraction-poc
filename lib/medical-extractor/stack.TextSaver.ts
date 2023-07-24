@@ -1,5 +1,5 @@
 import { Handler, SNSEvent } from 'aws-lambda';
-import { persist } from '../dynamodb-persistor';
+import * as db from '../dynamodb-persistor';
 import { TextExtractor, TextractRecord } from '../text-extractor';
 import { extractBillingCodes } from '../aws/comprehend-medical';
 import { startStateMachine } from '../aws/step-fuctions';
@@ -19,16 +19,20 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
       documentId: docId,
     });
 
-    const [_, saveLocation] = await Promise.all([
-      persist(process.env.DOC_INFO_TABLE_NAME, docId, {
+    const [persistResult, saveLocation] = await Promise.allSettled([
+      db.update(process.env.DOC_INFO_TABLE_NAME, docId, {
         rawText: {
           L: text.map((line) => ({ S: line })),
         },
       }),
       s3.saveText(text.join('\n'), `${docId}/textract/extracted.txt`),
     ]);
+    console.debug('Finished persiting', persistResult, saveLocation);
+    if (saveLocation.status != 'fulfilled') {
+      throw Error('Failed to save text output to intermediate bucket');
+    }
     await startStateMachine(docId, {
-      location: saveLocation,
+      location: saveLocation.value,
     });
   });
   return Promise.all(results);
