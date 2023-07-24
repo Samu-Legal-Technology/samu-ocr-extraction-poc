@@ -13,6 +13,9 @@ Entry point lambdas:
 
 - [StartMedicalExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartMedicalExtraction?tab=code)
 - [StartCorrespondenceExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartCorrespondenceExtraction?tab=code)
+  - For demoing a pdf extraction, click on the lambda dropdown select `TestCorrespondencePDF` and click `Test`
+  - For demoing a email extraction, click on the lambda dropdown select `TestCorrespondenceEmail` and click `Test`
+  - For demoing a transcript extraction, click on the lambda dropdown select `TestCorrespondenceTrans` and click `Test`
 
 After running a test, you will get a response that has the generated `documentId` used througout the extraction process. Take not of the `documentId` for later.
 

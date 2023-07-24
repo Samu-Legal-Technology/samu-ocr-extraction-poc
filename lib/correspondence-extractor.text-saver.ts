@@ -18,7 +18,7 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
       documentId,
       {
         type: { S: 'correspondence' },
-        rawText: {
+        extraction: {
           L: extraction.map((line) => ({ S: line })),
         },
       }
