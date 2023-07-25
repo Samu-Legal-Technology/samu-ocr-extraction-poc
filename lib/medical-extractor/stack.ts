@@ -161,6 +161,7 @@ export default class MedicalExtractor extends cdk.Stack {
 
     const expenseSaver = new jsLambda.NodejsFunction(this, 'ExpenseSaver', {
       timeout: cdk.Duration.seconds(15),
+      memorySize: 512,
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
         RESULT_TOPIC_ARN: props.resultTopic.arn.importValue,

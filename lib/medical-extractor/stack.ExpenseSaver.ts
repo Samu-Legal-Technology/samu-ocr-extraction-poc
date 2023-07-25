@@ -19,7 +19,10 @@ interface Expense {
   price: number;
   productCode: string | undefined;
   description: string | undefined;
+  diagnosisCode: string | undefined;
+  provider: string | undefined;
   unitPrice: number | undefined;
+  quantity: number | undefined;
 }
 
 interface ExpenseData {
@@ -51,31 +54,42 @@ function getDocumentTotal(document: ExpenseDocument): number | undefined {
   const docTotal = document.SummaryFields?.find((field) =>
     isFieldType(field, 'TOTAL')
   )?.ValueDetection?.Text;
-  console.debug('Unparsed total', docTotal);
   return parseDocumentValue(docTotal);
 }
 function getDocumentDue(document: ExpenseDocument): number | undefined {
   const docDue = document.SummaryFields?.find((field) =>
     isFieldType(field, 'AMOUNT_DUE')
   )?.ValueDetection?.Text;
-  console.debug('Unparsed total', docDue);
   return parseDocumentValue(docDue);
 }
 function getDocumentPaid(document: ExpenseDocument): number | undefined {
   const docPaid = document.SummaryFields?.find((field) =>
     isFieldType(field, 'AMOUNT_PAID')
   )?.ValueDetection?.Text;
-  console.debug('Unparsed paid', docPaid);
   return parseDocumentValue(docPaid);
 }
 
 function parseFieldText(field?: ExpenseField): number | undefined {
-  return parseFloat(Utils.sanitizeExpenseValue(field?.ValueDetection?.Text!));
+  const text = field?.ValueDetection?.Text;
+  return parseDocumentValue(text);
 }
 
 function getItemText(item: LineItemFields, type: string): string | undefined {
   return item.LineItemExpenseFields?.find(filterFields(type))?.ValueDetection
     ?.Text;
+}
+
+function hasLabel(field: ExpenseField, labelText: string): boolean {
+  return field.LabelDetection?.Text?.toUpperCase() === labelText.toUpperCase();
+}
+
+function getOtherField(
+  item: LineItemFields,
+  labelText: string
+): string | undefined {
+  return item.LineItemExpenseFields?.find(
+    (field) => isFieldType(field, 'OTHER') && hasLabel(field, labelText)
+  )?.ValueDetection?.Text;
 }
 
 function getIndividualExpenses(
@@ -91,6 +105,11 @@ function getIndividualExpenses(
         description: getItemText(lineItem, 'ITEM'),
         unitPrice: parseFieldText(
           lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
+        ),
+        diagnosisCode: getOtherField(lineItem, 'Diagnosis'),
+        provider: getOtherField(lineItem, 'provider'),
+        quantity: parseFieldText(
+          lineItem.LineItemExpenseFields?.find(filterFields('QUANTITY'))
         ),
       }))
   )
@@ -175,9 +194,24 @@ async function saveExpenseData(
             S: expense.description,
           };
         }
+        if (expense.diagnosisCode) {
+          result.diagnosisCode = {
+            S: expense.diagnosisCode,
+          };
+        }
+        if (expense.provider) {
+          result.provider = {
+            S: expense.provider,
+          };
+        }
         if (expense.unitPrice) {
           result.unitPrice = {
             N: expense.unitPrice.toFixed(2),
+          };
+        }
+        if (expense.quantity) {
+          result.quantity = {
+            N: expense.quantity.toFixed(),
           };
         }
         return {
