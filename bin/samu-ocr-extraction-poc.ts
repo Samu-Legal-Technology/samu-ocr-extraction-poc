@@ -36,4 +36,5 @@ new MedicalExtractor(app, 'MedExtractorStack', {
 
 new CorrespondenceExtractor(app, 'CommsExtractorStack', {
   docTable: sharedInfra.docTable,
+  resultsBucket: sharedInfra.resultsBucket,
 });

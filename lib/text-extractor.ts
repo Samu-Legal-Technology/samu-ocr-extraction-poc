@@ -7,7 +7,7 @@ import {
   TextractClient,
 } from '@aws-sdk/client-textract';
 import * as S3Helper from './aws/s3';
-import { AddressObject, ParsedMail, simpleParser } from 'mailparser';
+import { AddressObject, Attachment, ParsedMail, simpleParser } from 'mailparser';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const textract = new TextractClient({});
@@ -30,6 +30,10 @@ export class TextExtractorEmailResult {
   bcc: string[] | null;
   subject?: string | null;
   body?: string | null;
+  references?: string[] | null;
+  attachments?: string[] | null;
+
+  attachmentsWithContent?: {filename: string, content: string}[] | null;
 
   constructor(parsed: ParsedMail) {
     this.messageId = parsed.messageId || null;
@@ -59,12 +63,40 @@ export class TextExtractorEmailResult {
       ? [parsed.bcc.text]
       : null;
 
+    this.references = Array.isArray(parsed.references)
+      ? parsed.references
+      : parsed.references
+      ? [parsed.references]
+      : null;
+
+    this.attachments = parsed.attachments?.map((a: Attachment) => {
+      return a.filename!
+    }) || null
+
+    this.attachmentsWithContent = parsed.attachments?.map((a: Attachment) => {
+      return {
+        filename: a.filename!,
+        content: a.content.toString(),
+      }
+    }) || null
+
     this.subject = parsed.subject || null;
     this.body = parsed.text || null;
   }
 
   toDynamo(): Record<string, AttributeValue> {
-    return Utils.toDynamo(this);
+    return Utils.toDynamo({
+      messageId: this.messageId,
+      date: this.date,
+      from: this.from,
+      to: this.to,
+      cc: this.cc,
+      bcc: this.bcc,
+      subject: this.subject,
+      body: this.body,
+      references: this.references,
+      attachments: this.attachments,
+    });
   }
 }
 
@@ -163,7 +195,7 @@ export class TextExtractor {
       })
     );
     return {
-      documentId,
+      documentId: id,
       jobId: extractTextJob.JobId,
     };
   }
