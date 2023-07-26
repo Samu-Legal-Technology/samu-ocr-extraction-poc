@@ -123,6 +123,7 @@ export default class MedicalExtractor extends cdk.Stack {
       'ICD10CodeSaver',
       {}
     );
+    resultBucket.grantRead(billingCodeSaver);
 
     const ontologyMachine = new OntologyStateMachine(
       this,

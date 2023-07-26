@@ -24,6 +24,8 @@ export const handler: Handler = async (event: {
     console.debug('loaded files', files);
     files?.map((file) => {
       const json = JSON.parse(file) as { Entities: ICD10CMEntity[] };
+      // json.Entities.map((entity) => {
+      // })
       console.debug('Parsed file: ', json);
     });
   }
