@@ -12,5 +12,8 @@ export function generateId(key: string) {
 }
 
 export function toDynamo(obj: any) {
-  return marshall(obj, { convertClassInstanceToMap: true });
+  return marshall(obj, {
+    convertClassInstanceToMap: true,
+    convertEmptyValues: true,
+  });
 }

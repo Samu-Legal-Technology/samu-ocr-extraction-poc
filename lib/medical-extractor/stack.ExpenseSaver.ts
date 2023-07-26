@@ -7,23 +7,47 @@ import {
   TextractClient,
   ExpenseField,
 } from '@aws-sdk/client-textract';
-import { sanitizeExpenseValue } from '../utils';
 import * as db from '../dynamodb-persistor';
+import * as Utils from '../utils';
 import { sendExtractionMessage } from '../reporter';
 import { TextractRecord } from '../text-extractor';
+import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const textract = new TextractClient({});
+
+interface Expense {
+  price: number;
+  productCode?: string;
+  description?: string;
+  diagnosisCode?: string;
+  provider?: string;
+  unitPrice?: number;
+  quantity?: number;
+}
+
+interface ReceiptInfo {
+  accountNumbers: string[];
+  provider: {
+    names: string[];
+    addresses: string[];
+  };
+  receiver: {
+    names: string[];
+    addresses: string[];
+  };
+}
 
 interface ExpenseData {
   total: number;
   paid: number;
   due: number;
-  expenses: number[];
+  receiptInfo: ReceiptInfo;
+  expenses: Expense[];
 }
 
 function parseDocumentValue(rawTotal: string | undefined): number | undefined {
   if (rawTotal) {
-    const parsed = parseFloat(sanitizeExpenseValue(rawTotal));
+    const parsed = parseFloat(Utils.sanitizeExpenseValue(rawTotal));
     console.debug('Parsed Total', parsed);
     if (!isNaN(parsed)) {
       return parsed;
@@ -36,52 +60,111 @@ function parseDocumentValue(rawTotal: string | undefined): number | undefined {
 function isFieldType(field: ExpenseField, type: string): boolean {
   return field.Type?.Text?.toUpperCase() === type.toUpperCase();
 }
+const filterFields = (type: string) => (field: ExpenseField) =>
+  isFieldType(field, type);
 
 function getDocumentTotal(document: ExpenseDocument): number | undefined {
   const docTotal = document.SummaryFields?.find((field) =>
     isFieldType(field, 'TOTAL')
   )?.ValueDetection?.Text;
-  console.debug('Unparsed total', docTotal);
   return parseDocumentValue(docTotal);
 }
 function getDocumentDue(document: ExpenseDocument): number | undefined {
   const docDue = document.SummaryFields?.find((field) =>
     isFieldType(field, 'AMOUNT_DUE')
   )?.ValueDetection?.Text;
-  console.debug('Unparsed total', docDue);
   return parseDocumentValue(docDue);
 }
 function getDocumentPaid(document: ExpenseDocument): number | undefined {
   const docPaid = document.SummaryFields?.find((field) =>
     isFieldType(field, 'AMOUNT_PAID')
   )?.ValueDetection?.Text;
-  console.debug('Unparsed paid', docPaid);
   return parseDocumentValue(docPaid);
+}
+
+function getAllValuesForType(
+  fields: ExpenseField[],
+  fieldName: string
+): string[] {
+  const values = new Set<string>();
+  fields.filter(filterFields(fieldName)).forEach((field) => {
+    const text = field.ValueDetection?.Text;
+    if (text) values.add(text);
+  });
+  return Array.from(values);
+}
+
+function getReceiptInfo(document: ExpenseDocument): ReceiptInfo {
+  const fields = document.SummaryFields ?? [];
+  return {
+    accountNumbers: getAllValuesForType(fields, 'ACCOUNT_NUMBER'),
+    receiver: {
+      names: getAllValuesForType(fields, 'RECEIVER_NAME'),
+      addresses: getAllValuesForType(fields, 'RECEIVER_ADDRESS'),
+    },
+    provider: {
+      names: getAllValuesForType(fields, 'VENDOR_NAME'),
+      addresses: getAllValuesForType(fields, 'VENDOR_ADDRESS'),
+    },
+  };
+}
+
+function parseFieldText(field?: ExpenseField): number | undefined {
+  const text = field?.ValueDetection?.Text;
+  return parseDocumentValue(text);
+}
+
+function getItemText(item: LineItemFields, type: string): string | undefined {
+  return item.LineItemExpenseFields?.find(filterFields(type))?.ValueDetection
+    ?.Text;
+}
+
+function hasLabel(field: ExpenseField, labelText: string): boolean {
+  return field.LabelDetection?.Text?.toUpperCase() === labelText.toUpperCase();
+}
+
+function getOtherField(
+  item: LineItemFields,
+  labelText: string
+): string | undefined {
+  return item.LineItemExpenseFields?.find(
+    (field) => isFieldType(field, 'OTHER') && hasLabel(field, labelText)
+  )?.ValueDetection?.Text;
 }
 
 function getIndividualExpenses(
   document: ExpenseDocument
-): number[] | undefined {
+): Expense[] | undefined {
   return document.LineItemGroups?.map(
     (group) =>
-      group.LineItems?.map(
-        (lineItem: LineItemFields) =>
-          lineItem.LineItemExpenseFields?.find(
-            (field) => field.Type?.Text === 'PRICE'
-          )?.ValueDetection?.Text
-      )
+      group.LineItems?.map((lineItem: LineItemFields) => {
+        const price = parseFieldText(
+          lineItem.LineItemExpenseFields?.find(filterFields('PRICE'))
+        );
+        if (!price) {
+          return;
+        }
+        return {
+          price,
+          productCode: getItemText(lineItem, 'PRODUCT_CODE'),
+          description: getItemText(lineItem, 'ITEM'),
+          unitPrice: parseFieldText(
+            lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
+          ),
+          diagnosisCode: getOtherField(lineItem, 'Diagnosis'),
+          provider: getOtherField(lineItem, 'provider'),
+          quantity: parseFieldText(
+            lineItem.LineItemExpenseFields?.find(filterFields('QUANTITY'))
+          ),
+        } as Expense;
+      })
   )
     .flat()
-    .map((val) => parseFloat(sanitizeExpenseValue(val!)));
+    .filter((expense): expense is Expense => !!expense);
 }
 
 async function getExpenseAnalysis(jobId: string) {
-  let data: ExpenseData = {
-    expenses: [],
-    total: 0.0,
-    paid: 0.0,
-    due: 0.0,
-  };
+  let pages: ExpenseData[] = [];
   let nextToken: string | undefined = undefined;
   do {
     const expenseResult: GetExpenseAnalysisCommandOutput = await textract.send(
@@ -91,52 +174,95 @@ async function getExpenseAnalysis(jobId: string) {
       })
     );
     nextToken = expenseResult.NextToken;
-    const newData = expenseResult.ExpenseDocuments?.reduce(
-      ({ expenses, total, paid, due }, doc) => {
-        const docTotal = getDocumentTotal(doc);
-        console.debug('Doc total', docTotal);
-        const docPaid = getDocumentPaid(doc);
-        const docDue = getDocumentDue(doc);
-        const lineItemExpenses = getIndividualExpenses(doc);
-        console.debug('Doc expenses', lineItemExpenses);
-        return {
-          total: total + (docTotal ?? 0),
-          paid: paid + (docPaid ?? 0),
-          due: due + (docDue ?? 0),
-          expenses: expenses.concat(lineItemExpenses ?? []),
-        };
-      },
-      data
-    );
-    data = newData ?? data;
+    const newPages = expenseResult.ExpenseDocuments?.map((doc) => {
+      const docTotal = getDocumentTotal(doc);
+      console.debug('Doc total', docTotal);
+      const docPaid = getDocumentPaid(doc);
+      const docDue = getDocumentDue(doc);
+      const lineItemExpenses = getIndividualExpenses(doc);
+      const receiptInfo = getReceiptInfo(doc);
+      console.debug('Doc expenses', lineItemExpenses);
+      return {
+        total: docTotal ?? 0,
+        paid: docPaid ?? 0,
+        due: docDue ?? 0,
+        receiptInfo,
+        expenses: lineItemExpenses ?? [],
+      };
+    });
+    pages = pages.concat(...(newPages ?? []));
   } while (nextToken);
 
-  return data;
+  return pages;
 }
 
-async function getDocumentExpenses(jobId: string): Promise<ExpenseData> {
+async function getDocumentExpenses(jobId: string): Promise<ExpenseData[]> {
   return getExpenseAnalysis(jobId);
 }
 
 async function saveExpenseData(
   docId: string,
-  { total, expenses, paid, due }: ExpenseData
+  pages: ExpenseData[]
 ): Promise<number | undefined> {
   return await db.update(process.env.DOC_INFO_TABLE_NAME, docId, {
     type: {
       S: 'medical',
     },
-    totalExpenses: {
-      N: total.toFixed(2),
-    },
-    totalPaid: {
-      N: paid.toFixed(2),
-    },
-    totalDue: {
-      N: due.toFixed(2),
-    },
-    expenses: {
-      L: expenses.map((expense) => ({ N: expense.toFixed(2) })),
+    pages: {
+      L: pages.map(({ total, paid, due, expenses, receiptInfo }) => ({
+        M: {
+          totalExpenses: {
+            N: total.toFixed(2),
+          },
+          totalPaid: {
+            N: paid.toFixed(2),
+          },
+          totalDue: {
+            N: due.toFixed(2),
+          },
+          receiptInfo: {
+            M: Utils.toDynamo(receiptInfo),
+          },
+          expenses: {
+            L: expenses.map((expense) => {
+              const result: Record<string, AttributeValue> = {
+                price: {
+                  N: expense.price.toFixed(2),
+                },
+              };
+              Object.keys(expense)
+                .filter((key) => key !== 'price')
+                .forEach((key) => {
+                  const value = expense[key as keyof Expense];
+                  if (value) {
+                    if (typeof value === 'number') {
+                      result[key] = {
+                        N: value.toFixed(2),
+                      };
+                    } else {
+                      result[key] = {
+                        S: value,
+                      };
+                    }
+                  }
+                  if (expense.provider) {
+                    result.provider = {
+                      S: expense.provider,
+                    };
+                  }
+                  if (expense.provider) {
+                    result.provider = {
+                      S: expense.provider,
+                    };
+                  }
+                });
+              return {
+                M: result,
+              };
+            }),
+          },
+        },
+      })),
     },
   });
 }
@@ -148,11 +274,8 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     const docId = jobData.JobTag;
     console.debug('Document ID', docId);
 
-    const data = await getDocumentExpenses(jobData.JobId);
-    console.debug('Total', data.total);
-    console.debug('Expenses', data.expenses);
-
-    await saveExpenseData(docId, data);
+    const pages = await getDocumentExpenses(jobData.JobId);
+    await saveExpenseData(docId, pages);
     await sendExtractionMessage(
       process.env.RESULT_TOPIC_ARN!,
       {
