@@ -17,12 +17,12 @@ const textract = new TextractClient({});
 
 interface Expense {
   price: number;
-  productCode: string | undefined;
-  description: string | undefined;
-  diagnosisCode: string | undefined;
-  provider: string | undefined;
-  unitPrice: number | undefined;
-  quantity: number | undefined;
+  productCode?: string;
+  description?: string;
+  diagnosisCode?: string;
+  provider?: string;
+  unitPrice?: number;
+  quantity?: number;
 }
 
 interface ReceiptInfo {
@@ -137,21 +137,24 @@ function getIndividualExpenses(
 ): Expense[] | undefined {
   return document.LineItemGroups?.map(
     (group) =>
-      group.LineItems?.map((lineItem: LineItemFields) => ({
-        price: parseFieldText(
-          lineItem.LineItemExpenseFields?.find(filterFields('PRICE'))
-        )!,
-        productCode: getItemText(lineItem, 'PRODUCT_CODE'),
-        description: getItemText(lineItem, 'ITEM'),
-        unitPrice: parseFieldText(
-          lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
-        ),
-        diagnosisCode: getOtherField(lineItem, 'Diagnosis'),
-        provider: getOtherField(lineItem, 'provider'),
-        quantity: parseFieldText(
-          lineItem.LineItemExpenseFields?.find(filterFields('QUANTITY'))
-        ),
-      }))
+      group.LineItems?.map(
+        (lineItem: LineItemFields) =>
+          ({
+            price: parseFieldText(
+              lineItem.LineItemExpenseFields?.find(filterFields('PRICE'))
+            )!,
+            productCode: getItemText(lineItem, 'PRODUCT_CODE'),
+            description: getItemText(lineItem, 'ITEM'),
+            unitPrice: parseFieldText(
+              lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
+            ),
+            diagnosisCode: getOtherField(lineItem, 'Diagnosis'),
+            provider: getOtherField(lineItem, 'provider'),
+            quantity: parseFieldText(
+              lineItem.LineItemExpenseFields?.find(filterFields('QUANTITY'))
+            ),
+          }) as Expense
+      )
   )
     .flat()
     .filter((expense): expense is Expense => !!expense);
