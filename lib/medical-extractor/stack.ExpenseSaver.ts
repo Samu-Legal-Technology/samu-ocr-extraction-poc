@@ -137,24 +137,27 @@ function getIndividualExpenses(
 ): Expense[] | undefined {
   return document.LineItemGroups?.map(
     (group) =>
-      group.LineItems?.map(
-        (lineItem: LineItemFields) =>
-          ({
-            price: parseFieldText(
-              lineItem.LineItemExpenseFields?.find(filterFields('PRICE'))
-            )!,
-            productCode: getItemText(lineItem, 'PRODUCT_CODE'),
-            description: getItemText(lineItem, 'ITEM'),
-            unitPrice: parseFieldText(
-              lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
-            ),
-            diagnosisCode: getOtherField(lineItem, 'Diagnosis'),
-            provider: getOtherField(lineItem, 'provider'),
-            quantity: parseFieldText(
-              lineItem.LineItemExpenseFields?.find(filterFields('QUANTITY'))
-            ),
-          }) as Expense
-      )
+      group.LineItems?.map((lineItem: LineItemFields) => {
+        const price = parseFieldText(
+          lineItem.LineItemExpenseFields?.find(filterFields('PRICE'))
+        );
+        if (!price) {
+          return;
+        }
+        return {
+          price,
+          productCode: getItemText(lineItem, 'PRODUCT_CODE'),
+          description: getItemText(lineItem, 'ITEM'),
+          unitPrice: parseFieldText(
+            lineItem.LineItemExpenseFields?.find(filterFields('UNIT_PRICE'))
+          ),
+          diagnosisCode: getOtherField(lineItem, 'Diagnosis'),
+          provider: getOtherField(lineItem, 'provider'),
+          quantity: parseFieldText(
+            lineItem.LineItemExpenseFields?.find(filterFields('QUANTITY'))
+          ),
+        } as Expense;
+      })
   )
     .flat()
     .filter((expense): expense is Expense => !!expense);
