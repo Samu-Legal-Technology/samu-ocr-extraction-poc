@@ -18,22 +18,39 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
       jobId: jobData.JobId,
       documentId: docId,
     });
+    const pages = await extractor.fetchJobOutputPages({
+      jobId: jobData.JobId,
+      documentId: docId,
+    });
+    console.debug(`found ${pages.length} pages`, pages);
 
-    const [persistResult, saveLocation] = await Promise.allSettled([
+    const [persistResult, ...saveLocations] = await Promise.allSettled([
       db.update(process.env.DOC_INFO_TABLE_NAME, docId, {
         rawText: {
-          L: text.map((line) => ({ S: line })),
+          S: `https://s3.console.aws.amazon.com/s3/object/${process.env.STORAGE_BUCKET}?prefix=${docId}/textract`,
         },
       }),
-      s3.saveText(text.join('\n'), `${docId}/textract/extracted.txt`),
+      ...pages.map((page, i) =>
+        s3.saveText(page, `${docId}/textract/extracted${i}.txt`)
+      ),
     ]);
-    console.debug('Finished persiting', persistResult, saveLocation);
-    if (saveLocation.status != 'fulfilled') {
+    console.debug('Finished persiting', persistResult, saveLocations);
+    if (
+      saveLocations.some((saveLocation) => saveLocation.status != 'fulfilled')
+    ) {
       throw Error('Failed to save text output to intermediate bucket');
     }
-    await startStateMachine(docId, {
-      location: saveLocation.value,
-    });
+    const validLocation = saveLocations.find(
+      (location) => location.status == 'fulfilled' && location.value
+    ) as PromiseFulfilledResult<s3.S3Location>;
+    console.info('First valid location', validLocation);
+    if (validLocation) {
+      await startStateMachine(docId, {
+        location: validLocation.value,
+      });
+    } else {
+      console.warn('No valid location, not starting ontology machine');
+    }
   });
   return Promise.all(results);
 };

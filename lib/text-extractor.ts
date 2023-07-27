@@ -199,4 +199,37 @@ export class TextExtractor {
 
     return text;
   }
+  async fetchJobOutputPages(
+    result: TextExtractorAsyncResult
+  ): Promise<string[]> {
+    if (!result.jobId) {
+      throw new Error('missing job id');
+    }
+
+    let nextToken = undefined;
+    let pages: string[] = [];
+    do {
+      console.debug('Getting Text Result', nextToken);
+      const extraction: GetDocumentTextDetectionCommandOutput =
+        await textract.send(
+          new GetDocumentTextDetectionCommand({
+            JobId: result.jobId,
+            NextToken: nextToken,
+          })
+        );
+      nextToken = extraction.NextToken;
+
+      console.debug('Got', extraction.Blocks?.length, 'blocks');
+      extraction.Blocks?.filter(
+        (block) => block.BlockType === 'LINE' && block.Text
+      )?.forEach((block) => {
+        if (block.Page) {
+          const currentPage = pages[block.Page] || '';
+          pages[block.Page] = currentPage + '\n' + block.Text;
+        }
+      });
+    } while (nextToken);
+
+    return pages;
+  }
 }
