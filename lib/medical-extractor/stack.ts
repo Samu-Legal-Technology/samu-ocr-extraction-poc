@@ -12,6 +12,7 @@ import {
   TopicAttributes,
 } from '../samu-ocr-extraction-poc-stack';
 import OntologyStateMachine from './ontologies/state-machine';
+import { Timeout } from 'aws-cdk-lib/aws-stepfunctions';
 
 interface MedicalExtractorProps extends cdk.StackProps {
   docTable: TableAttributes;
@@ -121,9 +122,16 @@ export default class MedicalExtractor extends cdk.Stack {
     const billingCodeSaver = new jsLambda.NodejsFunction(
       this,
       'ICD10CodeSaver',
-      {}
+      {
+        timeout: cdk.Duration.seconds(45),
+        memorySize: 512,
+        environment: {
+          DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        },
+      }
     );
     resultBucket.grantRead(billingCodeSaver);
+    billingCodeSaver.addToRolePolicy(writeItemPolicy);
 
     const ontologyMachine = new OntologyStateMachine(
       this,
@@ -140,7 +148,8 @@ export default class MedicalExtractor extends cdk.Stack {
     );
 
     const textSaver = new jsLambda.NodejsFunction(this, 'TextSaver', {
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(45),
+      memorySize: 512,
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
         STORAGE_BUCKET: resultBucket.bucketName,

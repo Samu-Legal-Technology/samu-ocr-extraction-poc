@@ -40,7 +40,7 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     const [persistResult, ...saveLocations] = await Promise.allSettled([
       db.update(process.env.DOC_INFO_TABLE_NAME, docId, {
         rawText: {
-          L: text.map((line) => ({ S: line })),
+          S: `https://s3.console.aws.amazon.com/s3/object/${process.env.STORAGE_BUCKET}?prefix=${docId}/textract`,
         },
       }),
       ...pages.map((page, i) =>
@@ -53,10 +53,17 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     ) {
       throw Error('Failed to save text output to intermediate bucket');
     }
-    await startStateMachine(docId, {
-      location: (saveLocations[0] as PromiseFulfilledResult<s3.S3Location>)
-        .value,
-    });
+    const validLocation = saveLocations.find(
+      (location) => location.status == 'fulfilled' && location.value
+    ) as PromiseFulfilledResult<s3.S3Location>;
+    console.info('First valid location', validLocation);
+    if (validLocation) {
+      await startStateMachine(docId, {
+        location: validLocation.value,
+      });
+    } else {
+      console.warn('No valid location, not starting ontology machine');
+    }
   });
   return Promise.all(results);
 };
