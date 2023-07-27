@@ -9,9 +9,15 @@ import * as S3Helper from '../aws/s3';
 import * as db from '../dynamodb-persistor';
 import * as Utils from '../utils';
 
-const MIN_CONCEPT_CONFIDENCE_SCORE = 0.2;
-const MIN_CONDITION_CONFIDENCE_SCORE = 0.95;
-const MIN_ATTRIBUTE_CONFIDENCE_SCORE = 0.8;
+const MIN_CONCEPT_CONFIDENCE_SCORE = parseFloat(
+  process.env.MIN_CONCEPT_CONFIDENCE_SCORE!
+);
+const MIN_CONDITION_CONFIDENCE_SCORE = parseFloat(
+  process.env.MIN_CONDITION_CONFIDENCE_SCORE!
+);
+const MIN_ATTRIBUTE_CONFIDENCE_SCORE = parseFloat(
+  process.env.MIN_ATTRIBUTE_CONFIDENCE_SCORE!
+);
 
 function getConfidentConcepts(
   entity: ICD10CMEntity

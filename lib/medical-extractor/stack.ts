@@ -127,6 +127,9 @@ export default class MedicalExtractor extends cdk.Stack {
         memorySize: 512,
         environment: {
           DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+          MIN_CONCEPT_CONFIDENCE_SCORE: '0.2',
+          MIN_CONDITION_CONFIDENCE_SCORE: '0.95',
+          MIN_ATTRIBUTE_CONFIDENCE_SCORE: '0.8',
         },
       }
     );

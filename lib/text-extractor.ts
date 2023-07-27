@@ -225,7 +225,7 @@ export class TextExtractor {
       )?.forEach((block) => {
         if (block.Page) {
           const currentPage = pages[block.Page] || '';
-          pages[block.Page] = currentPage + block.Text;
+          pages[block.Page] = currentPage + '\n' + block.Text;
         }
       });
     } while (nextToken);

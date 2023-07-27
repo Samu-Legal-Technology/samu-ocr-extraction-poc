@@ -7,19 +7,6 @@ import * as s3 from '../aws/s3';
 
 const extractor = new TextExtractor({});
 
-const INFER_JOB_MAX_INPUT_SIZE = 10000;
-
-const textToPages = (text: string[]): string[] => {
-  return text.reduce((pages: string[], line: string) => {
-    const page = pages.pop();
-    if (!page) return [line];
-    if (page.length + line.length > INFER_JOB_MAX_INPUT_SIZE) {
-      return pages.concat(page, line);
-    }
-    return pages.concat(page + '\n' + line);
-  }, []);
-};
-
 export const handler: Handler = async (event: SNSEvent): Promise<any> => {
   console.log('Event: ', JSON.stringify(event));
   const results = event.Records.map(async (record) => {
