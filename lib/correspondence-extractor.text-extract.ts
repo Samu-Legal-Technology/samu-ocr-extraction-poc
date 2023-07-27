@@ -2,6 +2,7 @@ import { Handler } from 'aws-cdk-lib/aws-lambda';
 import { TriggerEvent } from './shared';
 import { TextExtractor, TextExtractorAsyncResult } from './text-extractor';
 import * as DynamoDBPersistor from './dynamodb-persistor';
+import * as s3 from './aws/s3';
 
 export const handler: Handler = async (
   event: TriggerEvent
@@ -18,6 +19,7 @@ export const handler: Handler = async (
       event.bucket,
       event.key
     );
+
     const status = await DynamoDBPersistor.persist(
       process.env.DOC_INFO_TABLE_NAME,
       documentId,
@@ -30,9 +32,14 @@ export const handler: Handler = async (
       }
     );
 
+    for (const attachment of extraction.attachmentsWithContent ?? []) {
+      await s3.saveText(attachment.content, `${documentId}/attachments/${attachment.filename}`)
+    }
+
     return {
       result: 'Email processed',
       extra: {
+        documentId,
         dynanoDbStatus: status,
       },
     };
@@ -70,6 +77,7 @@ export const handler: Handler = async (
     return {
       result: 'Transcript processed',
       extra: {
+        documentId,
         dynanoDbStatus: status,
       },
     };

@@ -1,15 +1,15 @@
 import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
-import * as dynamo from 'aws-cdk-lib/aws-dynamodb';
 import * as jsLambda from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
-import { TableAttributes } from './samu-ocr-extraction-poc-stack';
+import { BucketAttributes, TableAttributes } from './samu-ocr-extraction-poc-stack';
 
 interface CorrespondenceExtractorProps {
   docTable: TableAttributes;
+  resultsBucket: BucketAttributes;
 }
 
 export default class CorrespondenceExtractor extends cdk.Stack {
@@ -44,6 +44,12 @@ export default class CorrespondenceExtractor extends cdk.Stack {
       new subs.EmailSubscription('christian.angelone@caylent.com')
     );
 
+    const resultBucket = s3.Bucket.fromBucketName(
+      this,
+      'ResultsBucket',
+      props.resultsBucket.name.importValue
+    );
+
     // Text extractor lambda
     const textExtractor = new jsLambda.NodejsFunction(this, 'text-extract', {
       functionName: 'StartCorrespondenceExtraction',
@@ -51,6 +57,7 @@ export default class CorrespondenceExtractor extends cdk.Stack {
         NOTIFICATION_TOPIC_ARN: topic.topicArn,
         NOTIFICATION_ROLE_ARN: textractPublishingRole.roleArn,
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        STORAGE_BUCKET: resultBucket.bucketName,
       },
     });
 
@@ -67,6 +74,8 @@ export default class CorrespondenceExtractor extends cdk.Stack {
         resources: [props.docTable.arn.importValue],
       })
     );
+
+    resultBucket.grantPut(textExtractor);
 
     // Text saver lambda
     const textSaver = new jsLambda.NodejsFunction(this, 'text-saver', {
