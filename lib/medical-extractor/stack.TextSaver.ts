@@ -16,7 +16,7 @@ const textToPages = (text: string[]): string[] => {
     if (page.length + line.length > INFER_JOB_MAX_INPUT_SIZE) {
       return pages.concat(page, line);
     }
-    return pages.concat(page + line);
+    return pages.concat(page + '\n' + line);
   }, []);
 };
 
