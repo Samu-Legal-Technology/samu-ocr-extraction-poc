@@ -17,3 +17,11 @@ export function toDynamo(obj: any) {
     convertEmptyValues: true,
   });
 }
+
+export function dedup<T>(items: T[], hasher: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const hash = hasher(item);
+    return seen.has(hash) ? false : seen.add(hash);
+  });
+}

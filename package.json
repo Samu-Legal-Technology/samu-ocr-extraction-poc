@@ -23,6 +23,7 @@
     "@types/node": "20.1.7",
     "@types/uuid": "^9.0.2",
     "aws-cdk": "2.87.0",
+    "esbuild": "0.18.17",
     "husky": "^8.0.3",
     "jest": "^29.5.0",
     "lint-staged": "^13.2.3",

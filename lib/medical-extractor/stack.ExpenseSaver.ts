@@ -11,7 +11,6 @@ import * as db from '../dynamodb-persistor';
 import * as Utils from '../utils';
 import { sendExtractionMessage } from '../reporter';
 import { TextractRecord } from '../text-extractor';
-import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const textract = new TextractClient({});
 
@@ -204,67 +203,45 @@ async function saveExpenseData(
   docId: string,
   pages: ExpenseData[]
 ): Promise<number | undefined> {
-  return await db.update(process.env.DOC_INFO_TABLE_NAME, docId, {
-    type: {
-      S: 'medical',
-    },
-    pages: {
-      L: pages.map(({ total, paid, due, expenses, receiptInfo }) => ({
-        M: {
-          totalExpenses: {
-            N: total.toFixed(2),
-          },
-          totalPaid: {
-            N: paid.toFixed(2),
-          },
-          totalDue: {
-            N: due.toFixed(2),
-          },
-          receiptInfo: {
-            M: Utils.toDynamo(receiptInfo),
-          },
-          expenses: {
-            L: expenses.map((expense) => {
-              const result: Record<string, AttributeValue> = {
-                price: {
-                  N: expense.price.toFixed(2),
-                },
-              };
-              Object.keys(expense)
-                .filter((key) => key !== 'price')
-                .forEach((key) => {
-                  const value = expense[key as keyof Expense];
-                  if (value) {
-                    if (typeof value === 'number') {
-                      result[key] = {
-                        N: value.toFixed(2),
-                      };
-                    } else {
-                      result[key] = {
-                        S: value,
-                      };
-                    }
+  return await db.update(
+    process.env.DOC_INFO_TABLE_NAME,
+    docId,
+    Utils.toDynamo({
+      type: 'medical',
+      expensesByPage: pages.map(
+        ({ total, paid, due, expenses, receiptInfo }) => ({
+          totalExpenses: total.toFixed(2),
+          totalPaid: paid.toFixed(2),
+          totalDue: due.toFixed(2),
+          receiptInfo: receiptInfo,
+          expenses: expenses.map((expense) => {
+            const result: Record<string, number | string> = {
+              price: expense.price.toFixed(2),
+            };
+            Object.keys(expense)
+              .filter((key) => key !== 'price')
+              .forEach((key) => {
+                const value = expense[key as keyof Expense];
+                if (value) {
+                  if (typeof value === 'number') {
+                    result[key] = value.toFixed(2);
+                  } else {
+                    result[key] = value;
                   }
-                  if (expense.provider) {
-                    result.provider = {
-                      S: expense.provider,
-                    };
-                  }
-                  if (expense.provider) {
-                    result.provider = {
-                      S: expense.provider,
-                    };
-                  }
-                });
-              return {
-                M: result,
-              };
-            }),
-          },
-        },
-      })),
-    },
-  });
+                }
+                if (expense.provider) {
+                  result.provider = expense.provider;
+                }
+                if (expense.provider) {
+                  result.provider = expense.provider;
+                }
+              });
+            return result;
+          }),
+        })
+      ),
+    })
+  );
 }
 
 export const handler: Handler = async (event: SNSEvent): Promise<any> => {
