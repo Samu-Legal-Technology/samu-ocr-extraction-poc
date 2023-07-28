@@ -9,6 +9,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 interface OntologyFunctions {
   icd10: lambda.Function;
   rxnorm: lambda.Function;
+  snomed: lambda.Function;
 }
 
 interface OntologyStateMachineProps {
@@ -108,6 +109,7 @@ function generateComprehendMedicalJob(
 const actionNameForKey: Record<FunctionNames, string> = {
   icd10: 'ICD10CM',
   rxnorm: 'RxNorm',
+  snomed: 'SNOMEDCT',
 };
 
 export default class OntologyStateMachine extends Construct {

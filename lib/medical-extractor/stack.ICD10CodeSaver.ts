@@ -8,31 +8,8 @@ import {
 import * as S3Helper from '../aws/s3';
 import * as db from '../dynamodb-persistor';
 import * as Utils from '../utils';
+import * as filters from './filters';
 
-const MIN_CONCEPT_CONFIDENCE_SCORE = parseFloat(
-  process.env.MIN_CONCEPT_CONFIDENCE_SCORE!
-);
-const MIN_ENTITY_CONFIDENCE_SCORE = parseFloat(
-  process.env.MIN_ENTITY_CONFIDENCE_SCORE!
-);
-const MIN_ATTRIBUTE_CONFIDENCE_SCORE = parseFloat(
-  process.env.MIN_ATTRIBUTE_CONFIDENCE_SCORE!
-);
-
-function getConfidentConcepts(
-  entity: ICD10CMEntity
-): ICD10CMConcept[] | undefined {
-  return entity.ICD10CMConcepts?.filter(
-    (concept) => concept.Score && concept.Score > MIN_CONCEPT_CONFIDENCE_SCORE
-  );
-}
-function getConfidentAttributes(
-  entity: ICD10CMEntity
-): ICD10CMAttribute[] | undefined {
-  return entity.Attributes?.filter(
-    (concept) => concept.Score && concept.Score > MIN_ATTRIBUTE_CONFIDENCE_SCORE
-  );
-}
 function transformConcept(concept: ICD10CMConcept | undefined) {
   if (concept && concept.Code) {
     return {
@@ -76,19 +53,19 @@ export const handler: Handler = async (event: {
         const entities = json.Entities.filter(
           (entity) =>
             entity.Category === 'MEDICAL_CONDITION' &&
-            entity.Score > MIN_ENTITY_CONFIDENCE_SCORE
+            entity.Score > filters.MIN_ENTITY_CONFIDENCE_SCORE
         )
           .map((entity) => {
             const code = transformConcept(
-              getConfidentConcepts(entity)?.shift()
+              filters.getConfidentConcepts(entity.ICD10CMConcepts)?.shift()
             );
             if (code) {
               return {
                 condition: entity.Text,
                 attributes:
-                  getConfidentAttributes(entity)?.map(
-                    (attribute) => attribute.Text
-                  ) ?? [],
+                  filters
+                    .getConfidentAttributes(entity)
+                    ?.map((attribute) => attribute.Text) ?? [],
                 ...code,
               };
             }
