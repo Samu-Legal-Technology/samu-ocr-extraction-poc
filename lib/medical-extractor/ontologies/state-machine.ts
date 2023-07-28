@@ -98,7 +98,7 @@ function generateComprehendMedicalJob(
     resultPath: `$.${props.actionName}`,
   }).next(
     generateWaiter(scope, props.actionName, {
-      success: new tasks.LambdaInvoke(scope, `${id}Saver`, {
+      success: new tasks.LambdaInvoke(scope, `${props.actionName}Saver`, {
         lambdaFunction: props.functions[id],
       }),
     })
@@ -125,18 +125,13 @@ export default class OntologyStateMachine extends Construct {
       split.branch(job);
     });
 
-    this.machine = new sfn.StateMachine(this, 'OntologyStateMachine', {
-      definitionBody: sfn.DefinitionBody.fromChainable(split),
-    });
-    props.roles.dataAccess.grantPassRole(this.machine.role);
-
     split.addCatch(
       new tasks.SnsPublish(this, 'ReportFailure', {
         topic: props.notificationTopic,
         subject: 'Ontology Analysis Failed',
         message: sfn.TaskInput.fromText(
           sfn.JsonPath.format(
-            `Extraction of Ontology codes failed for {}. See execution {} for more details. https://https://us-east-1.console.aws.amazon.com/states/home?region=us-east-1#/v2/executions/details/${this.machine.stateMachineArn}:{}`,
+            `Extraction of Ontology codes failed for {}. See execution {} for more details. https://us-east-1.console.aws.amazon.com/states/home?region=us-east-1#/v2/executions/details/{}`,
             sfn.JsonPath.stringAt('$.documentId'),
             sfn.JsonPath.executionId,
             sfn.JsonPath.executionId
@@ -150,7 +145,7 @@ export default class OntologyStateMachine extends Construct {
         subject: 'Ontolgy Analysis Succeeded',
         message: sfn.TaskInput.fromText(
           sfn.JsonPath.format(
-            `Extraction of Ontology codes suceeded for {}. See execution {} for more details. https://https://us-east-1.console.aws.amazon.com/states/home?region=us-east-1#/v2/executions/details/${this.machine.stateMachineArn}:{}`,
+            `Extraction of Ontology codes suceeded for {}. See execution {} for more details. https://us-east-1.console.aws.amazon.com/states/home?region=us-east-1#/v2/executions/details/{}`,
             sfn.JsonPath.stringAt('$.documentId'),
             sfn.JsonPath.executionId,
             sfn.JsonPath.executionId
@@ -158,6 +153,10 @@ export default class OntologyStateMachine extends Construct {
         ),
       })
     );
+    this.machine = new sfn.StateMachine(this, 'OntologyStateMachine', {
+      definitionBody: sfn.DefinitionBody.fromChainable(split),
+    });
+    props.roles.dataAccess.grantPassRole(this.machine.role);
   }
 
   getArn(): string {
