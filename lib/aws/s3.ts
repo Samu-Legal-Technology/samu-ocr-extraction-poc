@@ -7,7 +7,7 @@ import {
 
 const s3 = new S3Client({});
 
-const BUCKET = process.env.STORAGE_BUCKET!;
+export const BUCKET = process.env.STORAGE_BUCKET!;
 
 export interface S3Location {
   bucket: string;

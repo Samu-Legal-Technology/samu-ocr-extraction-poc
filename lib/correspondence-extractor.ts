@@ -5,7 +5,10 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
-import { BucketAttributes, TableAttributes } from './samu-ocr-extraction-poc-stack';
+import {
+  BucketAttributes,
+  TableAttributes,
+} from './samu-ocr-extraction-poc-stack';
 
 interface CorrespondenceExtractorProps {
   docTable: TableAttributes;
@@ -63,7 +66,10 @@ export default class CorrespondenceExtractor extends cdk.Stack {
 
     textExtractor.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['textract:StartDocumentTextDetection'],
+        actions: [
+          'textract:StartDocumentTextDetection',
+          'comprehend:DetectEntities',
+        ],
         resources: ['*'],
       })
     );
@@ -81,6 +87,7 @@ export default class CorrespondenceExtractor extends cdk.Stack {
     const textSaver = new jsLambda.NodejsFunction(this, 'text-saver', {
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        STORAGE_BUCKET: resultBucket.bucketName,
       },
     });
 
@@ -99,6 +106,9 @@ export default class CorrespondenceExtractor extends cdk.Stack {
         resources: [props.docTable.arn.importValue],
       })
     );
+
+    textSaver.addEnvironment('COMPREHEND_ACCESS_ROLE', textSaver.role?.roleArn ?? '')
+    resultBucket.grantPut(textSaver);
 
     // source S3 bucket permissions
     const sourceBucket = s3.Bucket.fromBucketName(

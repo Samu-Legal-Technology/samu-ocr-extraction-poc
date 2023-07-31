@@ -7,7 +7,12 @@ import {
   TextractClient,
 } from '@aws-sdk/client-textract';
 import * as S3Helper from './aws/s3';
-import { AddressObject, Attachment, ParsedMail, simpleParser } from 'mailparser';
+import {
+  AddressObject,
+  Attachment,
+  ParsedMail,
+  simpleParser,
+} from 'mailparser';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const textract = new TextractClient({});
@@ -33,7 +38,7 @@ export class TextExtractorEmailResult {
   references?: string[] | null;
   attachments?: string[] | null;
 
-  attachmentsWithContent?: {filename: string, content: string}[] | null;
+  attachmentsWithContent?: { filename: string; content: string }[] | null;
 
   constructor(parsed: ParsedMail) {
     this.messageId = parsed.messageId || null;
@@ -69,16 +74,18 @@ export class TextExtractorEmailResult {
       ? [parsed.references]
       : null;
 
-    this.attachments = parsed.attachments?.map((a: Attachment) => {
-      return a.filename!
-    }) || null
+    this.attachments =
+      parsed.attachments?.map((a: Attachment) => {
+        return a.filename!;
+      }) || null;
 
-    this.attachmentsWithContent = parsed.attachments?.map((a: Attachment) => {
-      return {
-        filename: a.filename!,
-        content: a.content.toString(),
-      }
-    }) || null
+    this.attachmentsWithContent =
+      parsed.attachments?.map((a: Attachment) => {
+        return {
+          filename: a.filename!,
+          content: a.content.toString(),
+        };
+      }) || null;
 
     this.subject = parsed.subject || null;
     this.body = parsed.text || null;
