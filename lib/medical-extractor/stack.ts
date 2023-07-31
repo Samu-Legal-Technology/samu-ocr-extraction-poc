@@ -36,6 +36,11 @@ export default class MedicalExtractor extends cdk.Stack {
       'ResultsBucket',
       props.resultsBucket.name.importValue
     );
+    const resultTopic = sns.Topic.fromTopicArn(
+      this,
+      'ResultsTopic',
+      props.resultTopic.arn.importValue
+    );
 
     const textractPublishingRole = new iam.Role(
       this,
@@ -94,7 +99,7 @@ export default class MedicalExtractor extends cdk.Stack {
     });
     const writeResultMessagePolicy = new iam.PolicyStatement({
       actions: ['sns:Publish'],
-      resources: [props.resultTopic.arn.importValue],
+      resources: [resultTopic.topicArn],
     });
 
     const medExtractor = new jsLambda.NodejsFunction(this, 'MedicalExtractor', {
@@ -128,24 +133,38 @@ export default class MedicalExtractor extends cdk.Stack {
         environment: {
           DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
           MIN_CONCEPT_CONFIDENCE_SCORE: '0.2',
-          MIN_CONDITION_CONFIDENCE_SCORE: '0.95',
+          MIN_ENTITY_CONFIDENCE_SCORE: '0.95',
           MIN_ATTRIBUTE_CONFIDENCE_SCORE: '0.8',
         },
       }
     );
     resultBucket.grantRead(billingCodeSaver);
     billingCodeSaver.addToRolePolicy(writeItemPolicy);
+    const prescriptionSaver = new jsLambda.NodejsFunction(this, 'RXNORMSaver', {
+      timeout: cdk.Duration.seconds(45),
+      memorySize: 512,
+      environment: {
+        DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        MIN_CONCEPT_CONFIDENCE_SCORE: '0.2',
+        MIN_ENTITY_CONFIDENCE_SCORE: '0.85',
+        MIN_ATTRIBUTE_CONFIDENCE_SCORE: '0.8',
+      },
+    });
+    resultBucket.grantRead(prescriptionSaver);
+    prescriptionSaver.addToRolePolicy(writeItemPolicy);
 
     const ontologyMachine = new OntologyStateMachine(
       this,
       'OntologyExtraction',
       {
         functions: {
-          ICD10Saver: billingCodeSaver,
+          icd10: billingCodeSaver,
+          rxnorm: prescriptionSaver,
         },
         roles: {
           dataAccess: comprehendAccessRole,
         },
+        notificationTopic: resultTopic,
         storageBucket: props.resultsBucket.name.importValue,
       }
     );
@@ -177,7 +196,7 @@ export default class MedicalExtractor extends cdk.Stack {
       memorySize: 512,
       environment: {
         DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
-        RESULT_TOPIC_ARN: props.resultTopic.arn.importValue,
+        RESULT_TOPIC_ARN: resultTopic.topicArn,
       },
     });
     expenseSaver.addToRolePolicy(

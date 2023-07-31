@@ -1,40 +1,41 @@
 import { Handler } from 'aws-lambda';
 import {
   ComprehendMedicalAsyncJobProperties,
-  ICD10CMAttribute,
-  ICD10CMConcept,
-  ICD10CMEntity,
+  RxNormAttribute,
+  RxNormConcept,
+  RxNormEntity,
 } from '@aws-sdk/client-comprehendmedical';
 import * as S3Helper from '../aws/s3';
 import * as db from '../dynamodb-persistor';
 import * as Utils from '../utils';
 
-const MIN_CONCEPT_CONFIDENCE_SCORE = parseFloat(
-  process.env.MIN_CONCEPT_CONFIDENCE_SCORE!
-);
 const MIN_ENTITY_CONFIDENCE_SCORE = parseFloat(
   process.env.MIN_ENTITY_CONFIDENCE_SCORE!
+);
+const MIN_CONCEPT_CONFIDENCE_SCORE = parseFloat(
+  process.env.MIN_CONCEPT_CONFIDENCE_SCORE!
 );
 const MIN_ATTRIBUTE_CONFIDENCE_SCORE = parseFloat(
   process.env.MIN_ATTRIBUTE_CONFIDENCE_SCORE!
 );
 
-function getConfidentConcepts(
-  entity: ICD10CMEntity
-): ICD10CMConcept[] | undefined {
-  return entity.ICD10CMConcepts?.filter(
-    (concept) => concept.Score && concept.Score > MIN_CONCEPT_CONFIDENCE_SCORE
-  );
-}
 function getConfidentAttributes(
-  entity: ICD10CMEntity
-): ICD10CMAttribute[] | undefined {
+  entity: RxNormEntity
+): RxNormAttribute[] | undefined {
   return entity.Attributes?.filter(
     (concept) => concept.Score && concept.Score > MIN_ATTRIBUTE_CONFIDENCE_SCORE
   );
 }
-function transformConcept(concept: ICD10CMConcept | undefined) {
-  if (concept && concept.Code) {
+
+function getConfidentConcepts(
+  entity: RxNormEntity
+): RxNormConcept[] | undefined {
+  return entity.RxNormConcepts?.filter(
+    (concept) => concept.Score && concept.Score > MIN_CONCEPT_CONFIDENCE_SCORE
+  );
+}
+function transformConcept(concept: RxNormConcept | undefined) {
+  if (concept) {
     return {
       code: concept.Code,
       description: concept.Description,
@@ -43,16 +44,17 @@ function transformConcept(concept: ICD10CMConcept | undefined) {
   return;
 }
 
-interface Condition {
+interface Prescription {
   code: string;
+  name: string;
   description: string | undefined;
-  condition: string;
+  type: string;
   attributes: string[];
 }
 
 export const handler: Handler = async (event: {
   documentId: string;
-  ICD10CM: {
+  RxNorm: {
     status: {
       ComprehendMedicalAsyncJobProperties: ComprehendMedicalAsyncJobProperties;
     };
@@ -60,7 +62,7 @@ export const handler: Handler = async (event: {
 }): Promise<any> => {
   console.log('Event', JSON.stringify(event));
   const outputConfig =
-    event.ICD10CM.status.ComprehendMedicalAsyncJobProperties.OutputDataConfig;
+    event.RxNorm.status.ComprehendMedicalAsyncJobProperties.OutputDataConfig;
   if (outputConfig) {
     const files = await S3Helper.getFilesForPrefix(
       outputConfig.S3Bucket!,
@@ -71,11 +73,11 @@ export const handler: Handler = async (event: {
     const results = files
       ?.map((file) => {
         const json = JSON.parse(file) as {
-          Entities: Required<ICD10CMEntity>[];
+          Entities: Required<RxNormEntity>[];
         };
         const entities = json.Entities.filter(
           (entity) =>
-            entity.Category === 'MEDICAL_CONDITION' &&
+            entity.Category === 'MEDICATION' &&
             entity.Score > MIN_ENTITY_CONFIDENCE_SCORE
         )
           .map((entity) => {
@@ -84,7 +86,8 @@ export const handler: Handler = async (event: {
             );
             if (code) {
               return {
-                condition: entity.Text,
+                type: entity.Type,
+                name: entity.Text,
                 attributes:
                   getConfidentAttributes(entity)?.map(
                     (attribute) => attribute.Text
@@ -99,13 +102,17 @@ export const handler: Handler = async (event: {
         return entities;
       })
       .flat()
-      .filter((condition): condition is Condition => !!condition);
+      .filter((prescription): prescription is Prescription => !!prescription);
+
     if (results) {
       await db.update(
         process.env.DOC_INFO_TABLE_NAME,
         event.documentId,
         Utils.toDynamo({
-          icd10Conditions: Utils.dedup(results, (condition) => condition.code),
+          prescriptions: Utils.dedup(
+            results,
+            (prescription) => prescription.code
+          ),
         })
       );
     }
