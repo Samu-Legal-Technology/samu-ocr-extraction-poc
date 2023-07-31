@@ -11,6 +11,7 @@ import * as db from '../dynamodb-persistor';
 import * as Utils from '../utils';
 import * as filters from './filters';
 
+// Takes a concept and extracts the necessary information
 function transformConcept(concept: SNOMEDCTConcept | undefined) {
   if (concept) {
     return {
@@ -31,6 +32,9 @@ interface Diagnosis {
   traits: string[];
 }
 
+// Load the results from the s3 object
+// Map through and filter out API concepts that are not confident enough
+// Format them and save it to DynamoDB
 export const handler: Handler = async (event: {
   documentId: string;
   SNOMEDCT: {
