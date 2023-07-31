@@ -1,9 +1,3 @@
-import {
-  ICD10CMEntity,
-  RxNormEntity,
-  SNOMEDCTEntity,
-} from '@aws-sdk/client-comprehendmedical';
-
 export const MIN_ENTITY_CONFIDENCE_SCORE = parseFloat(
   process.env.MIN_ENTITY_CONFIDENCE_SCORE!
 );
