@@ -152,6 +152,19 @@ export default class MedicalExtractor extends cdk.Stack {
     });
     resultBucket.grantRead(prescriptionSaver);
     prescriptionSaver.addToRolePolicy(writeItemPolicy);
+    const diangosisSaver = new jsLambda.NodejsFunction(this, 'SNOMEDSaver', {
+      timeout: cdk.Duration.seconds(45),
+      memorySize: 512,
+      environment: {
+        DOC_INFO_TABLE_NAME: props.docTable.name.importValue,
+        MIN_CONCEPT_CONFIDENCE_SCORE: '0.2',
+        MIN_TRAIT_CONFIDENCE_SCORE: '0.8',
+        MIN_ENTITY_CONFIDENCE_SCORE: '0.85',
+        MIN_ATTRIBUTE_CONFIDENCE_SCORE: '0.8',
+      },
+    });
+    resultBucket.grantRead(diangosisSaver);
+    diangosisSaver.addToRolePolicy(writeItemPolicy);
 
     const ontologyMachine = new OntologyStateMachine(
       this,
@@ -160,6 +173,7 @@ export default class MedicalExtractor extends cdk.Stack {
         functions: {
           icd10: billingCodeSaver,
           rxnorm: prescriptionSaver,
+          snomed: diangosisSaver,
         },
         roles: {
           dataAccess: comprehendAccessRole,

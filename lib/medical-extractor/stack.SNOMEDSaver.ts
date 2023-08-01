@@ -1,16 +1,18 @@
 import { Handler } from 'aws-lambda';
 import {
   ComprehendMedicalAsyncJobProperties,
-  RxNormAttribute,
-  RxNormConcept,
-  RxNormEntity,
+  SNOMEDCTEntity,
+  SNOMEDCTAttribute,
+  SNOMEDCTConcept,
+  SNOMEDCTTrait,
 } from '@aws-sdk/client-comprehendmedical';
 import * as S3Helper from '../aws/s3';
 import * as db from '../dynamodb-persistor';
 import * as Utils from '../utils';
 import * as filters from './filters';
 
-function transformConcept(concept: RxNormConcept | undefined) {
+// Takes a concept and extracts the necessary information
+function transformConcept(concept: SNOMEDCTConcept | undefined) {
   if (concept) {
     return {
       code: concept.Code,
@@ -20,17 +22,22 @@ function transformConcept(concept: RxNormConcept | undefined) {
   return;
 }
 
-interface Prescription {
+interface Diagnosis {
   code: string;
   name: string;
   description: string | undefined;
   type: string;
+  category: string;
   attributes: string[];
+  traits: string[];
 }
 
+// Load the results from the s3 object
+// Map through and filter out API concepts that are not confident enough
+// Format them and save it to DynamoDB
 export const handler: Handler = async (event: {
   documentId: string;
-  RxNorm: {
+  SNOMEDCT: {
     status: {
       ComprehendMedicalAsyncJobProperties: ComprehendMedicalAsyncJobProperties;
     };
@@ -38,7 +45,7 @@ export const handler: Handler = async (event: {
 }): Promise<any> => {
   console.log('Event', JSON.stringify(event));
   const outputConfig =
-    event.RxNorm.status.ComprehendMedicalAsyncJobProperties.OutputDataConfig;
+    event.SNOMEDCT.status.ComprehendMedicalAsyncJobProperties.OutputDataConfig;
   if (outputConfig) {
     const files = await S3Helper.getFilesForPrefix(
       outputConfig.S3Bucket!,
@@ -49,21 +56,24 @@ export const handler: Handler = async (event: {
     const results = files
       ?.map((file) => {
         const json = JSON.parse(file) as {
-          Entities: Required<RxNormEntity>[];
+          Entities: Required<SNOMEDCTEntity>[];
         };
         const entities = json.Entities.filter(
-          (entity) =>
-            entity.Category === 'MEDICATION' &&
-            entity.Score > filters.MIN_ENTITY_CONFIDENCE_SCORE
+          (entity) => entity.Score > filters.MIN_ENTITY_CONFIDENCE_SCORE
         )
           .map((entity) => {
             const code = transformConcept(
-              filters.getConfidentConcepts(entity.RxNormConcepts)?.shift()
+              filters.getConfidentConcepts(entity.SNOMEDCTConcepts)?.shift()
             );
             if (code) {
               return {
                 type: entity.Type,
+                category: entity.Category,
                 name: entity.Text,
+                traits:
+                  filters
+                    .getConfidentTraits(entity)
+                    ?.map((trait) => trait.Name) ?? [],
                 attributes:
                   filters
                     .getConfidentAttributes(entity)
@@ -78,17 +88,14 @@ export const handler: Handler = async (event: {
         return entities;
       })
       .flat()
-      .filter((prescription): prescription is Prescription => !!prescription);
+      .filter((diagnosis): diagnosis is Diagnosis => !!diagnosis);
 
     if (results) {
       await db.update(
         process.env.DOC_INFO_TABLE_NAME,
         event.documentId,
         Utils.toDynamo({
-          prescriptions: Utils.dedup(
-            results,
-            (prescription) => prescription.code
-          ),
+          snomedCodes: Utils.dedup(results, (diagnosis) => diagnosis.code),
         })
       );
     }
