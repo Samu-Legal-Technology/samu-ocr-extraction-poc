@@ -29,6 +29,10 @@ You can [subscribe](https://docs.aws.amazon.com/sns/latest/dg/sns-email-notifica
 Once it is done, take the `documentId` from either the notification or the result of starting the extraction and search for it in the DynamoDB table
 [DocumentInfo](https://us-east-1.console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?maximize=true&table=DocumentInfo).
 
+#### Note: For email documents, attachments found during extraction are put on a S3 results bucket (`samuocrextractionpocstac-rawextractionresultsa677-1k5k05vbr18zk`) following the convention `documentId/attachments/filename` .
+
+[Link to S3 results bucket ](https://s3.console.aws.amazon.com/s3/buckets/samuocrextractionpocstac-rawextractionresultsa677-1k5k05vbr18zk?region=us-east-1&tab=objects)
+
 # Welcome to your CDK TypeScript project
 
 This is a blank project for CDK development with TypeScript.
