@@ -69,6 +69,8 @@ export default class CorrespondenceExtractor extends cdk.Stack {
         actions: [
           'textract:StartDocumentTextDetection',
           'comprehend:DetectEntities',
+          'comprehend:DetectSentiment',
+          'comprehend:DetectKeyPhrases',
         ],
         resources: ['*'],
       })
@@ -98,6 +100,8 @@ export default class CorrespondenceExtractor extends cdk.Stack {
         actions: [
           'textract:GetDocumentTextDetection',
           'comprehend:DetectEntities',
+          'comprehend:DetectSentiment',
+          'comprehend:DetectKeyPhrases',
         ],
         resources: ['*'],
       })
