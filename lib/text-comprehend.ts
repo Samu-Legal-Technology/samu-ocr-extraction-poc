@@ -21,6 +21,7 @@ export class TextComprehend {
   ): Promise<string[]> {
     const entities = new Set<string>();
 
+    console.debug('Extracting entities');
     for (const text of texts) {
       if (!text.Text) continue;
 

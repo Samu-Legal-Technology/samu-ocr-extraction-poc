@@ -95,7 +95,10 @@ export default class CorrespondenceExtractor extends cdk.Stack {
 
     textSaver.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['textract:GetDocumentTextDetection'],
+        actions: [
+          'textract:GetDocumentTextDetection',
+          'comprehend:DetectEntities',
+        ],
         resources: ['*'],
       })
     );

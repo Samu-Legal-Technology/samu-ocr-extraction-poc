@@ -15,7 +15,9 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     const extractor = new TextExtractor({});
     const extraction = await extractor.fetchJobOutputFrom({ jobId });
 
-    await s3.saveText(extraction.join('\n'), `${documentId}/textract/extracted.txt`)
+    const text = extraction.join('\n')
+
+    await s3.saveText(text, `${documentId}/textract/extracted.txt`)
 
     const comprehend = new TextComprehend();
     // TODO: explore the async way
@@ -27,7 +29,7 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     // })
 
     const entities = await comprehend.extractEntities([
-      { Text: extraction.join('\n') }
+      { Text: text }
     ])
 
     const status = await DynamoDBPersistor.persist(
