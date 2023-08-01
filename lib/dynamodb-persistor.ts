@@ -15,19 +15,30 @@ export const persist = async (
 ): Promise<number | undefined> => {
   if (!tableName) throw new Error('Undefined table name');
 
-  const res = await db.send(
-    new PutItemCommand({
-      TableName: tableName,
-      Item: {
-        documentId: {
-          S: docId,
+  let status: number | undefined;
+
+  try {
+    const res = await db.send(
+      new PutItemCommand({
+        TableName: tableName,
+        Item: {
+          documentId: {
+            S: docId,
+          },
+          ...item,
         },
-        ...item,
-      },
-      ReturnValues: ReturnValue.NONE,
-    })
-  );
-  return res.$metadata.httpStatusCode;
+        ReturnValues: ReturnValue.NONE,
+      })
+    );
+  
+    status = res.$metadata.httpStatusCode
+  } catch (err) {
+    console.debug('Could not persist to dynamo:', err)
+  }
+
+  console.debug('Dynamo db status:', status)
+
+  return status;
 };
 
 export const update = async (
