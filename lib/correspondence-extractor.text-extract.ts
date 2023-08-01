@@ -28,6 +28,14 @@ export const handler: Handler = async (
       { Text: extraction.body },
     ]);
 
+    const sentiments = await comprehend.extractSentiments([
+      { Text: extraction.body },
+    ]);
+
+    const keyPhrases = await comprehend.extractKeyPhrases([
+      { Text: extraction.body },
+    ]);
+
     const status = await DynamoDBPersistor.persist(
       process.env.DOC_INFO_TABLE_NAME,
       documentId,
@@ -42,6 +50,12 @@ export const handler: Handler = async (
         },
         entities: {
           L: entities.map((e) => ({ S: e })),
+        },
+        sentiments: {
+          L: sentiments.map((e) => ({ S: e })),
+        },
+        keyPhrases: {
+          L: keyPhrases.map((kp) => ({ S: kp })),
         },
       }
     );
@@ -69,14 +83,18 @@ export const handler: Handler = async (
       event.key
     );
 
-    const entities = await comprehend.extractEntities(
-      extraction.Transcript.reduce(
-        (acc: [{ Text: string }], text: { Content: String }) => {
-          return [{ Text: `${acc[0].Text}\n${text.Content}` }];
-        },
-        [{ Text: '' }]
-      )
-    );
+    const text: { Text: string }[] =  extraction.Transcript.reduce(
+      (acc: [{ Text: string }], text: { Content: String }) => {
+        return [{ Text: `${acc[0].Text}\n${text.Content}` }];
+      },
+      [{ Text: '' }]
+    )
+
+    const entities = await comprehend.extractEntities(text);
+
+    const sentiments = await comprehend.extractSentimentsFromTranscript(extraction.Transcript)
+
+    const keyPhrases = await comprehend.extractKeyPhrases(text)
 
     const transcript = extraction.Transcript.map((t: any) => ({
       M: {
@@ -100,6 +118,12 @@ export const handler: Handler = async (
         },
         entities: {
           L: entities.map((e) => ({ S: e })),
+        },
+        sentiments: {
+          L: sentiments.map((s) => ({ S: s })),
+        },
+        keyPhrases: {
+          L: keyPhrases.map((kp) => ({ S: kp })),
         },
       }
     );

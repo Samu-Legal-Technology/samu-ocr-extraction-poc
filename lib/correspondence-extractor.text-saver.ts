@@ -32,6 +32,14 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
       { Text: text }
     ])
 
+    const sentiments = await comprehend.extractSentiments([
+      { Text: text },
+    ]);
+
+    const keyPhrases = await comprehend.extractKeyPhrases([
+      { Text: text },
+    ]);
+
     const status = await DynamoDBPersistor.persist(
       process.env.DOC_INFO_TABLE_NAME,
       documentId,
@@ -42,6 +50,12 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
         },
         entities: {
           L: entities.map((e) => ({ S: e })),
+        },
+        sentiments: {
+          L: sentiments.map((e) => ({ S: e })),
+        },
+        keyPhrases: {
+          L: keyPhrases.map((kp) => ({ S: kp })),
         },
       }
     );
