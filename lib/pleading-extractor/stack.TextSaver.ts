@@ -46,7 +46,7 @@ function getQueries(blocks: Block[]) {
   }, {});
 }
 
-class BadFormatError extends Error {}
+class BadFormatError extends Error { }
 
 const vsPatterns = ['vs.', 'v.'];
 const removeVsLine = (blocks: Block[]) => {
