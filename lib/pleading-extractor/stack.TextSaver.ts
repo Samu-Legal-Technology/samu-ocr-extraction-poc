@@ -52,6 +52,7 @@ function getHeader(blocks: Block[]) {
   const filteredLines = lines.filter((block) => block.Text !== ')');
 
   // Format should be standard
+  // This is REALLY fragile
   let [
     courtLine,
     stateLine,
