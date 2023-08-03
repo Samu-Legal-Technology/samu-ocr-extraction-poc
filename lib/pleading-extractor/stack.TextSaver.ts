@@ -46,65 +46,124 @@ function getQueries(blocks: Block[]) {
   }, {});
 }
 
+class BadFormatError extends Error {}
+
+const vsPatterns = ['vs.', 'v.'];
+const removeVsLine = (blocks: Block[]) => {
+  const index = blocks.findIndex((block) =>
+    vsPatterns.some((pattern) => block.Text?.toLowerCase().startsWith(pattern))
+  );
+  if (index < 0) throw new BadFormatError('Unable to find vs line');
+  blocks.splice(index, 1);
+};
+const getCaseNumber = (blocks: Block[]) => {
+  const index = blocks.findIndex(
+    (block) =>
+      block.Text?.toLowerCase().startsWith('cause') ||
+      block.Text?.toLowerCase().startsWith('case')
+  );
+  if (index < 0) throw new BadFormatError('Unable to find case number');
+  const line = blocks.splice(index, 1);
+  return line[0];
+};
+const getDivisionNumber = (blocks: Block[]) => {
+  const index = blocks.findIndex(
+    (block) => block.Text?.toLowerCase().startsWith('division')
+  );
+  if (index < 0) throw new BadFormatError('Unable to find division number');
+  const line = blocks.splice(index, 1);
+  return line[0];
+};
+
+const getDefendants = (blocks: Block[]) => {
+  const plaintiffLineIndex = blocks.findIndex(
+    (block) => block.Text?.toLowerCase().startsWith('plaintiff')
+  );
+  if (plaintiffLineIndex < 0)
+    throw new BadFormatError('Unable to find defendant split');
+  const defedantLines = blocks.splice(plaintiffLineIndex + 1);
+  console.debug('defendants', defedantLines);
+  return defedantLines.filter(
+    (block) => !block.Text?.toLowerCase().startsWith('and,')
+  );
+};
+
+const getPlaintiff = (blocks: Block[]) => {
+  const plaintiffLineIndex = blocks.findIndex(
+    (block) => block.Text?.toLowerCase().startsWith('plaintiff')
+  );
+  if (plaintiffLineIndex < 0)
+    throw new BadFormatError('Unable to find plaintiff line');
+  let plaintiffStartIndex = plaintiffLineIndex - 1;
+  // For now, assume only one plaintiff.
+  const plaintiffLine = blocks.splice(plaintiffStartIndex, 2);
+  return plaintiffLine[0];
+};
+
+const getCounty = (blocks: Block[]) => {
+  const index = blocks.findIndex(
+    (block) => block.Text?.toLowerCase().includes('county')
+  );
+  if (index < 0) throw new BadFormatError('Unable to find county line');
+  return blocks[index];
+};
+const getState = (blocks: Block[]) => {
+  console.debug('state blocks', blocks);
+  const index = blocks.findIndex(
+    (block) => block.Text?.toLowerCase().includes('state')
+  );
+  if (index < 0) throw new BadFormatError('Unable to find state line');
+  return blocks[index];
+};
+const getCourt = (blocks: Block[]) => {
+  const index = blocks.findIndex((block) =>
+    ['court', 'circuit', 'district'].some(
+      (keyword) => block.Text?.toLowerCase().includes(keyword.toLowerCase())
+    )
+  );
+  if (index < 0) throw new BadFormatError('Unable to find court line');
+  return blocks[index];
+};
+
 function getHeader(blocks: Block[]) {
   const lines = blocks.filter(blockTypeFilter('LINE'));
   // Filter out dividers
   const filteredLines = lines.filter((block) => block.Text !== ')');
 
-  // Format should be standard
-  // This is REALLY fragile
-  let [
-    courtLine,
-    stateLine,
-    plaintifNameLine,
-    plaintifLine,
-    causeNumberLine,
-    vsLine,
-    divisionLine,
-    ...rest
-  ] = filteredLines;
-  // Found format to be one of 2 ways. Need to swap if it is the other way
-  if (vsLine.Text?.toLowerCase().includes('cause')) {
-    console.debug('Swapping vs and cause');
-    const tmp = vsLine;
-    vsLine = causeNumberLine;
-    causeNumberLine = tmp;
+  const defendantLineIndex = filteredLines.findIndex(
+    (block) => block.Text?.toLocaleLowerCase().includes('defendant')
+  );
+  if (defendantLineIndex < 0) {
+    throw new BadFormatError('Could not find defendent line');
   }
-  if (!divisionLine.Text?.toLowerCase().startsWith('division')) {
-    console.debug('swapping division and defendent');
-    const tmp = divisionLine;
-    divisionLine = rest[0];
-    rest[0] = tmp;
-  }
+  let header = filteredLines.slice(0, defendantLineIndex);
+  const causeNumberLine = getCaseNumber(header);
+  removeVsLine(header);
+  const divisionLine = getDivisionNumber(header);
+  const defendantsLines = getDefendants(header);
+  const plaintiffLine = getPlaintiff(header);
 
-  // May have more than one defendent
-  const defendentsIndex = rest.findIndex(
-    (block) => block.Text?.toLowerCase().startsWith('defendant')
-  );
-  const defendentsLines =
-    defendentsIndex < 0 ? [] : rest.slice(0, defendentsIndex);
-  console.debug('Defendent lines', defendentsIndex, defendentsLines);
-  const defendents = defendentsLines.filter(
-    (block) => !block.Text?.toLowerCase().includes('and')
-  );
+  // const countyLine = getCounty(header);
+  // const stateLine = getState(header);
+  // const courtLine = getCourt(header);
+
   console.debug(
     'Header fields',
-    courtLine,
-    stateLine,
-    plaintifNameLine,
-    plaintifLine,
+    // stateLine,
+    // countyLine,
+    // courtLine,
+    plaintiffLine,
     causeNumberLine,
-    vsLine,
     divisionLine,
-    defendents
+    defendantsLines
   );
   return {
-    court: courtLine.Text,
-    state: stateLine.Text,
-    plaintif: plaintifNameLine.Text,
+    // county: countyLine.Text,
+    // state: stateLine.Text,
+    plaintifs: plaintiffLine.Text,
     caseNumber: causeNumberLine.Text,
     division: divisionLine.Text,
-    defendents: defendents.map((block) => block.Text),
+    defendents: defendantsLines.map((block: Block) => block.Text),
   };
 }
 
@@ -131,8 +190,10 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
         docId,
         Utils.toDynamo({
           rawText: `https://s3.console.aws.amazon.com/s3/object/${process.env.STORAGE_BUCKET}?prefix=${docId}/textract`,
-          ...queries,
-          header,
+          header: {
+            ...queries,
+            ...header,
+          },
         })
       ),
       ...pages.map((page, i) =>

@@ -45,12 +45,17 @@ export const handler: Handler = async (
   });
   const [extractTextJob] = await Promise.allSettled([
     extractor.analyzeDocument(event.bucket, event.key, documentId, [
-      { Text: 'Who is the plaintif?', Alias: 'plaintif', Pages: ['1'] },
-      { Text: 'Who are the defendents?', Alias: 'defendents', Pages: ['1'] },
+      // Plaintiff and defendant are not accurate enough
+      // { Text: 'Who are the plaintiffs?', Alias: 'plaintiffs', Pages: ['1'] },
+      // { Text: 'Who are the defendants?', Alias: 'defendants', Pages: ['1'] },
       { Text: 'In which state is this filed?', Alias: 'state', Pages: ['1'] },
       { Text: 'In which county is this filed?', Alias: 'county', Pages: ['1'] },
       { Text: 'In which court is this filed?', Alias: 'court', Pages: ['1'] },
-      // { Text: 'Give me all the numbered paragraphs?', Alias: 'paragraphs', Pages: ["1"] },
+      {
+        Text: 'In which district is this filed?',
+        Alias: 'district',
+        Pages: ['1'],
+      },
     ]),
   ]);
   return {
