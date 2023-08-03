@@ -1,10 +1,10 @@
 import { Handler } from 'aws-cdk-lib/aws-lambda';
-import { TriggerEvent } from './shared';
-import { TextExtractor, TextExtractorAsyncResult } from './text-extractor';
-import * as DynamoDBPersistor from './dynamodb-persistor';
-import * as s3 from './aws/s3';
-import * as Utils from './utils';
-import { TextComprehend } from './text-comprehend';
+import { TriggerEvent } from '../shared';
+import { TextExtractor, TextExtractorAsyncResult } from '../text-extractor';
+import * as DynamoDBPersistor from '../dynamodb-persistor';
+import * as s3 from '../aws/s3';
+import * as Utils from '../utils';
+import { TextComprehend } from '../text-comprehend';
 
 export const handler: Handler = async (
   event: TriggerEvent
