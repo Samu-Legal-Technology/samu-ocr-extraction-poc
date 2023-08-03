@@ -13,6 +13,7 @@ Entry point lambdas:
 
 - [StartMedicalExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartMedicalExtraction?tab=code)
 - [StartCorrespondenceExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartCorrespondenceExtraction?tab=code)
+- [StartPleadingExtraction](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/StartPleadingExtraction?tab=code)
   - For demoing a pdf extraction, click on the lambda dropdown select `TestCorrespondencePDF` and click `Test`
   - For demoing a email extraction, click on the lambda dropdown select `TestCorrespondenceEmail` and click `Test`
   - For demoing a transcript extraction, click on the lambda dropdown select `TestCorrespondenceTrans` and click `Test`
@@ -33,17 +34,47 @@ Once it is done, take the `documentId` from either the notification or the resul
 
 [Link to S3 results bucket ](https://s3.console.aws.amazon.com/s3/buckets/samuocrextractionpocstac-rawextractionresultsa677-1k5k05vbr18zk?region=us-east-1&tab=objects)
 
-# Welcome to your CDK TypeScript project
+# Deploying the Infrastructure
 
-This is a blank project for CDK development with TypeScript.
-
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+This project uses CDK for Infrastructure as Code. The following will explain how to use
+the infrastructure.
 
 ## Useful commands
 
-- `npm run build` compile typescript to js
-- `npm run watch` watch for changes and compile
-- `npm run test` perform the jest unit tests
-- `cdk deploy` deploy this stack to your default AWS account/region
-- `cdk diff` compare deployed stack with current state
-- `cdk synth` emits the synthesized CloudFormation template
+- `npx cdk deploy StackNameHere` deploy this stack to your default AWS account/region
+- `npx cdk diff` compare deployed stack with current state
+- `npx cdk destropy` will tear down the infrastructure
+
+## Stacks
+
+There is a shared stack that has the shared resources, namely the DynamoDB tables, an s3 bucket for intermediate files, and an SNS topic for notifying of the status
+of an extractor
+
+Each extractor has it's own CloudFormation Stack. This allows them to be deployed
+independently and torn down independantly.
+
+To see what stacks are available, run the following:
+
+```sh
+npx cdk ls
+
+# Example Output
+# SamuOcrExtractionPocStack
+# MedExtractorStack
+# CommsExtractorStack
+# PleadingExtractorStack
+```
+
+From there you can select which of the stacks to deploy:
+
+```sh
+# Deploy only one stack
+npx cdk deploy MedExtractorStack
+
+# Deploy all extractor stacks
+# '*' is a wildcard
+npx cdk deploy "*ExtractorStack"
+
+# deploy all stacks
+npx cdk deploy --all
+```

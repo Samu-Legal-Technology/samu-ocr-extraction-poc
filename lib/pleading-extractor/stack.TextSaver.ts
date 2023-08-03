@@ -1,8 +1,6 @@
 import { Handler, SNSEvent } from 'aws-lambda';
 import * as db from '../dynamodb-persistor';
 import { TextExtractor, TextractRecord } from '../text-extractor';
-import { extractBillingCodes } from '../aws/comprehend-medical';
-import { startStateMachine } from '../aws/step-fuctions';
 import * as s3 from '../aws/s3';
 import * as Utils from '../utils';
 import { Block } from '@aws-sdk/client-textract';
@@ -81,6 +79,8 @@ const getDefendants = (blocks: Block[]) => {
   );
   if (plaintiffLineIndex < 0)
     throw new BadFormatError('Unable to find defendant split');
+
+  // The end of the header has already removed the 'defendant' line
   const defedantLines = blocks.splice(plaintiffLineIndex + 1);
   console.debug('defendants', defedantLines);
   return defedantLines.filter(
@@ -143,23 +143,19 @@ function getHeader(blocks: Block[]) {
   const defendantsLines = getDefendants(header);
   const plaintiffLine = getPlaintiff(header);
 
+  // Unreliable. Better to use the queries
   // const countyLine = getCounty(header);
   // const stateLine = getState(header);
   // const courtLine = getCourt(header);
 
   console.debug(
     'Header fields',
-    // stateLine,
-    // countyLine,
-    // courtLine,
     plaintiffLine,
     causeNumberLine,
     divisionLine,
     defendantsLines
   );
   return {
-    // county: countyLine.Text,
-    // state: stateLine.Text,
     plaintifs: plaintiffLine.Text,
     caseNumber: causeNumberLine.Text,
     division: divisionLine.Text,

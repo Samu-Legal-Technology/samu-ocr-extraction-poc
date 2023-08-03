@@ -1,15 +1,9 @@
 import { Handler } from 'aws-lambda';
 import { TriggerEvent } from '../shared';
-import {
-  StartExpenseAnalysisCommand,
-  TextractClient,
-} from '@aws-sdk/client-textract';
-import * as crypto from 'crypto';
 import { TextExtractor } from '../text-extractor';
 import { generateId } from '../utils';
 import * as db from '../dynamodb-persistor';
 
-const textract = new TextractClient({});
 const extractor = new TextExtractor({
   roleArn: process.env.NOTIFICATION_ROLE_ARN,
   topicArn: process.env.NOTIFICATION_TOPIC_ARN,
@@ -45,7 +39,7 @@ export const handler: Handler = async (
   });
   const [extractTextJob] = await Promise.allSettled([
     extractor.analyzeDocument(event.bucket, event.key, documentId, [
-      // Plaintiff and defendant are not accurate enough
+      // Plaintiff and defendant are not accurate enough. Or are inaccurate
       // { Text: 'Who are the plaintiffs?', Alias: 'plaintiffs', Pages: ['1'] },
       // { Text: 'Who are the defendants?', Alias: 'defendants', Pages: ['1'] },
       { Text: 'In which state is this filed?', Alias: 'state', Pages: ['1'] },
