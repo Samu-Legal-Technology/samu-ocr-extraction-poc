@@ -5,7 +5,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
 import MedicalExtractor from './medical-extractor/stack';
-import CorrespondenceExtractor from './correspondence-extractor';
+import CorrespondenceExtractor from './correspondence-extractor/correspondence-extractor';
 
 export interface TableAttributes {
   name: cdk.CfnOutput;

@@ -8,7 +8,7 @@ import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import {
   BucketAttributes,
   TableAttributes,
-} from './samu-ocr-extraction-poc-stack';
+} from '../samu-ocr-extraction-poc-stack';
 
 interface CorrespondenceExtractorProps {
   docTable: TableAttributes;

@@ -1,9 +1,9 @@
 import { Handler } from 'aws-cdk-lib/aws-lambda';
-import { TextExtractor, TextractRecord } from './text-extractor';
-import * as DynamoDBPersistor from './dynamodb-persistor';
+import { TextExtractor, TextractRecord } from '../text-extractor';
+import * as DynamoDBPersistor from '../dynamodb-persistor';
 import { SNSEvent } from 'aws-lambda';
-import * as s3 from './aws/s3';
-import { TextComprehend } from './text-comprehend';
+import * as s3 from '../aws/s3';
+import { TextComprehend } from '../text-comprehend';
 
 export const handler: Handler = async (event: SNSEvent): Promise<any> => {
   console.log('Got SNS Event', event);
