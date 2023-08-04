@@ -39,9 +39,6 @@ export const handler: Handler = async (
   });
   const [extractTextJob] = await Promise.allSettled([
     extractor.analyzeDocument(event.bucket, event.key, documentId, [
-      // Plaintiff and defendant are not accurate enough. Or are inaccurate
-      // { Text: 'Who are the plaintiffs?', Alias: 'plaintiffs', Pages: ['1'] },
-      // { Text: 'Who are the defendants?', Alias: 'defendants', Pages: ['1'] },
       { Text: 'In which state is this filed?', Alias: 'state', Pages: ['1'] },
       { Text: 'In which county is this filed?', Alias: 'county', Pages: ['1'] },
       { Text: 'In which court is this filed?', Alias: 'court', Pages: ['1'] },

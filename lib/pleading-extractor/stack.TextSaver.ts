@@ -100,31 +100,6 @@ const getPlaintiff = (blocks: Block[]) => {
   return plaintiffLine[0];
 };
 
-const getCounty = (blocks: Block[]) => {
-  const index = blocks.findIndex(
-    (block) => block.Text?.toLowerCase().includes('county')
-  );
-  if (index < 0) throw new BadFormatError('Unable to find county line');
-  return blocks[index];
-};
-const getState = (blocks: Block[]) => {
-  console.debug('state blocks', blocks);
-  const index = blocks.findIndex(
-    (block) => block.Text?.toLowerCase().includes('state')
-  );
-  if (index < 0) throw new BadFormatError('Unable to find state line');
-  return blocks[index];
-};
-const getCourt = (blocks: Block[]) => {
-  const index = blocks.findIndex((block) =>
-    ['court', 'circuit', 'district'].some(
-      (keyword) => block.Text?.toLowerCase().includes(keyword.toLowerCase())
-    )
-  );
-  if (index < 0) throw new BadFormatError('Unable to find court line');
-  return blocks[index];
-};
-
 function getHeader(blocks: Block[]) {
   const lines = blocks.filter(blockTypeFilter('LINE'));
   // Filter out dividers
@@ -142,11 +117,6 @@ function getHeader(blocks: Block[]) {
   const divisionLine = getDivisionNumber(header);
   const defendantsLines = getDefendants(header);
   const plaintiffLine = getPlaintiff(header);
-
-  // Unreliable. Better to use the queries
-  // const countyLine = getCounty(header);
-  // const stateLine = getState(header);
-  // const courtLine = getCourt(header);
 
   console.debug(
     'Header fields',
