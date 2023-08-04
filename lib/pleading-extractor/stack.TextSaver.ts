@@ -46,7 +46,7 @@ function getQueries(blocks: Block[]) {
   }, {});
 }
 
-class BadFormatError extends Error { }
+class BadFormatError extends Error {}
 
 const vsPatterns = ['vs.', 'v.'];
 const removeVsLine = (blocks: Block[]) => {
@@ -151,13 +151,25 @@ export function getNumberedParagraphs(blocks: Block[]): string[] {
     endIndex = blocks.findIndex(findParagraphStart(++number));
   }
   endIndex = startIndex;
-  while (!['.', '?'].some((puct) => blocks[endIndex]?.Text?.endsWith(puct))) { }
+  while (
+    endIndex < blocks.length &&
+    !['.', '?', ':'].some((puct) => blocks[endIndex]?.Text?.endsWith(puct))
+  )
+    endIndex++;
+
+  // Look for whether this is a question and answer document
   if (blocks[++endIndex]?.Text?.toLowerCase().startsWith('answer')) {
     console.debug(
       'block ends with . or : ?',
       blocks[endIndex]?.Text?.endsWith('.'),
       blocks[endIndex]?.Text?.endsWith(':')
     );
+    // This is a little shaky, but not sure how else to handle it.
+    // One example of where this would break down is if you have the
+    // answer on a line after the keywords `ANSWER:` But there is no
+    // other good way to detect an answer when it might possibly be blank.
+    // One other (complicated) thought is to use the bounding box to see
+    // if it is at a different indentation.
     while (
       !['.', '?', ':'].some(
         (puctuation) => blocks[endIndex]?.Text?.endsWith(puctuation)
@@ -165,7 +177,7 @@ export function getNumberedParagraphs(blocks: Block[]): string[] {
     )
       endIndex++;
   }
-  const paragraph = blocks.slice(startIndex, endIndex);
+  const paragraph = blocks.slice(startIndex, endIndex + 1);
   paragraphs.push(paragraph.map((block) => block.Text!));
 
   return paragraphs.map((lines) => lines.join(' '));
