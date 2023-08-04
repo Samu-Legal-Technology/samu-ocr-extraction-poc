@@ -86,7 +86,7 @@ export default class PleadingExtractor extends cdk.Stack {
     textSaver.addToRolePolicy(writeItemPolicy);
     textSaver.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['textract:GetDocumentAnalysis'],
+        actions: ['textract:GetDocumentAnalysis', 'comprehend:DetectEntities'],
         resources: ['*'],
       })
     );

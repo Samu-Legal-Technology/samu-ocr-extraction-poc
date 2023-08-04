@@ -114,7 +114,10 @@ export default class CorrespondenceExtractor extends cdk.Stack {
       })
     );
 
-    textSaver.addEnvironment('COMPREHEND_ACCESS_ROLE', textSaver.role?.roleArn ?? '')
+    textSaver.addEnvironment(
+      'COMPREHEND_ACCESS_ROLE',
+      textSaver.role?.roleArn ?? ''
+    );
     resultBucket.grantPut(textSaver);
 
     // source S3 bucket permissions

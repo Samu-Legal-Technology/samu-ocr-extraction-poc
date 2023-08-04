@@ -17,14 +17,14 @@ export interface TextComprehendAsyncResult {
 const comprehend = new ComprehendClient({});
 
 export class TextComprehend {
-
-  async extractSentimentsFromTranscript(transcript: {Sentiment: string | undefined}[]): Promise<string[]> {
+  async extractSentimentsFromTranscript(
+    transcript: { Sentiment: string | undefined }[]
+  ): Promise<string[]> {
     const sentiments = new Set<string>();
 
     console.debug('Extracting sentiments');
     for (const s of transcript) {
-      if (s && s.Sentiment !== undefined)
-        sentiments.add(s.Sentiment)
+      if (s && s.Sentiment !== undefined) sentiments.add(s.Sentiment);
     }
 
     return Array.from(sentiments);
@@ -45,10 +45,9 @@ export class TextComprehend {
       });
       const response = await comprehend.send(command);
 
-      const sentiment = response.Sentiment
+      const sentiment = response.Sentiment;
 
-      if(sentiment)
-        sentiments.add(sentiment);
+      if (sentiment) sentiments.add(sentiment);
     }
 
     return Array.from(sentiments);
@@ -69,17 +68,16 @@ export class TextComprehend {
       });
       const response = await comprehend.send(command);
 
-      const keyPhareses = response.KeyPhrases
+      const keyPhareses = response.KeyPhrases;
 
       for (const kp of keyPhareses ?? []) {
-        if(kp.Text)
-          phrases.add(kp.Text);
+        if (kp.Text) phrases.add(kp.Text);
       }
     }
 
     return Array.from(phrases);
   }
-  
+
   async extractEntities(
     texts: { Text: string | null | undefined }[]
   ): Promise<string[]> {
@@ -107,28 +105,28 @@ export class TextComprehend {
   }
 
   async extractEntitiesAsync(options: {
-    srcBucket: string,
-    srcKey: string,
-    outputBucket: string,
-    outputKey: string
+    srcBucket: string;
+    srcKey: string;
+    outputBucket: string;
+    outputKey: string;
   }): Promise<TextComprehendAsyncResult> {
     const command = new StartEntitiesDetectionJobCommand({
       LanguageCode: 'en',
       EntityRecognizerArn: undefined,
       DataAccessRoleArn: process.env.COMPREHEND_ACCESS_ROLE,
       InputDataConfig: {
-        S3Uri: `s3://${options.srcBucket}/${options.srcKey}`
+        S3Uri: `s3://${options.srcBucket}/${options.srcKey}`,
       },
       OutputDataConfig: {
-        S3Uri: `s3://${options.outputBucket}/${options.outputKey}`
-      }
+        S3Uri: `s3://${options.outputBucket}/${options.outputKey}`,
+      },
     });
-    
+
     const response = await comprehend.send(command);
 
     return {
       jobId: response.JobId,
-      outputS3Uri: `s3://${options.outputBucket}/${options.outputKey}`
-    }
+      outputS3Uri: `s3://${options.outputBucket}/${options.outputKey}`,
+    };
   }
 }
