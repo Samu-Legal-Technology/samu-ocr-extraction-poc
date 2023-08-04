@@ -22,7 +22,7 @@ interface MedicalExtractorProps extends cdk.StackProps {
 
 export default class MedicalExtractor extends cdk.Stack {
   constructor(scope: Construct, id: string, props: MedicalExtractorProps) {
-    super(scope, id);
+    super(scope, id, props);
 
     const medTopic = new sns.Topic(this, 'MedicalDocumentText', {});
 

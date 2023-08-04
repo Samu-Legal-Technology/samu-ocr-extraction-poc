@@ -1,8 +1,14 @@
 import * as Utils from './utils';
 import {
+  Block,
   DetectDocumentTextCommand,
+  FeatureType,
+  GetDocumentAnalysisCommand,
+  GetDocumentAnalysisCommandOutput,
   GetDocumentTextDetectionCommand,
   GetDocumentTextDetectionCommandOutput,
+  Query,
+  StartDocumentAnalysisCommand,
   StartDocumentTextDetectionCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
@@ -174,6 +180,46 @@ export class TextExtractor {
     };
   }
 
+  async analyzeDocument(
+    bucket: string,
+    key: string,
+    documentId?: string,
+    queries?: Query[]
+  ): Promise<TextExtractorAsyncResult> {
+    if (!this.notify.roleArn) throw Error('Missing notify roleArn');
+    if (!this.notify.topicArn) throw Error('Missing notify topicArn');
+
+    const id = documentId ?? Utils.generateId(key);
+
+    const features: FeatureType[] = [];
+    if (queries) {
+      features.push(FeatureType.QUERIES);
+    }
+    const documentAnalysisJob = await textract.send(
+      new StartDocumentAnalysisCommand({
+        DocumentLocation: {
+          S3Object: {
+            Bucket: bucket,
+            Name: key,
+          },
+        },
+        NotificationChannel: {
+          RoleArn: this.notify.roleArn,
+          SNSTopicArn: this.notify.topicArn,
+        },
+        FeatureTypes: features,
+        QueriesConfig: {
+          Queries: queries,
+        },
+        JobTag: id,
+      })
+    );
+    return {
+      documentId: id,
+      jobId: documentAnalysisJob.JobId,
+    };
+  }
+
   async asyncExtract(
     bucket: string,
     key: string,
@@ -270,5 +316,61 @@ export class TextExtractor {
     } while (nextToken);
 
     return pages;
+  }
+
+  async fetchAnalysisJobOutputFrom(
+    result: TextExtractorAsyncResult
+  ): Promise<string[]> {
+    if (!result.jobId) {
+      throw new Error('missing job id');
+    }
+
+    let nextToken = undefined;
+    let text: string[] = [];
+    do {
+      console.debug('Getting Text Result', nextToken);
+      const extraction: GetDocumentAnalysisCommandOutput = await textract.send(
+        new GetDocumentAnalysisCommand({
+          JobId: result.jobId,
+          NextToken: nextToken,
+        })
+      );
+      nextToken = extraction.NextToken;
+
+      console.debug('Got', extraction.Blocks?.length, 'blocks');
+      const lines =
+        extraction.Blocks?.filter(
+          (block) => block.BlockType === 'LINE' && block.Text
+        )?.map((block) => block.Text!) || [];
+
+      text = text.concat(...lines);
+    } while (nextToken);
+
+    return text;
+  }
+  async fetchAnalysisJobOutput(
+    result: TextExtractorAsyncResult
+  ): Promise<Block[]> {
+    if (!result.jobId) {
+      throw new Error('missing job id');
+    }
+
+    let nextToken = undefined;
+    let blocks: Block[] = [];
+    do {
+      console.debug('Getting Text Result', nextToken);
+      const extraction: GetDocumentAnalysisCommandOutput = await textract.send(
+        new GetDocumentAnalysisCommand({
+          JobId: result.jobId,
+          NextToken: nextToken,
+        })
+      );
+      nextToken = extraction.NextToken;
+
+      console.debug('Got', extraction.Blocks?.length, 'blocks');
+      blocks = blocks.concat(...(extraction.Blocks ?? []));
+    } while (nextToken);
+
+    return blocks;
   }
 }

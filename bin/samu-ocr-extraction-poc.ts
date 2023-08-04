@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { SamuOcrExtractionPocStack } from '../lib/samu-ocr-extraction-poc-stack';
 import MedicalExtractor from '../lib/medical-extractor/stack';
 import CorrespondenceExtractor from '../lib/correspondence-extractor/correspondence-extractor';
+import PleadingExtractor from '../lib/pleading-extractor/stack';
 
 const app = new cdk.App();
 
@@ -35,6 +36,11 @@ new MedicalExtractor(app, 'MedExtractorStack', {
 });
 
 new CorrespondenceExtractor(app, 'CommsExtractorStack', {
+  docTable: sharedInfra.docTable,
+  resultsBucket: sharedInfra.resultsBucket,
+});
+
+new PleadingExtractor(app, 'PleadingExtractorStack', {
   docTable: sharedInfra.docTable,
   resultsBucket: sharedInfra.resultsBucket,
 });
