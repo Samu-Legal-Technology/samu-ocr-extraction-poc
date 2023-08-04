@@ -38,6 +38,7 @@ Once it is done, take the `documentId` from either the notification or the resul
 
 This project uses CDK for Infrastructure as Code. The following will explain how to use
 the infrastructure.
+All necessary node modules are declared in package.json. Assuming you have nodejs already installed, a simple `npm i` will get all the tools you need.
 
 ## Useful commands
 
