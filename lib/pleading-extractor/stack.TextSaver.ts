@@ -135,6 +135,42 @@ function getHeader(blocks: Block[]) {
   };
 }
 
+const findParagraphStart = (num: number) => (block: Block) =>
+  block.Text?.startsWith(`${num}. `) || block.Text === `${num}.`;
+
+export function getNumberedParagraphs(blocks: Block[]): string[] {
+  const paragraphs: string[][] = [];
+  let number = 1;
+  let startIndex = blocks.findIndex(findParagraphStart(number));
+  let endIndex = blocks.findIndex(findParagraphStart(++number));
+  while (startIndex > 0 && endIndex > 0) {
+    const paragraphBlocks = blocks.slice(startIndex, endIndex);
+    paragraphs.push(paragraphBlocks.map((block) => block.Text!));
+
+    startIndex = endIndex;
+    endIndex = blocks.findIndex(findParagraphStart(++number));
+  }
+  endIndex = startIndex;
+  while (!['.', '?'].some((puct) => blocks[endIndex]?.Text?.endsWith(puct))) { }
+  if (blocks[++endIndex]?.Text?.toLowerCase().startsWith('answer')) {
+    console.debug(
+      'block ends with . or : ?',
+      blocks[endIndex]?.Text?.endsWith('.'),
+      blocks[endIndex]?.Text?.endsWith(':')
+    );
+    while (
+      !['.', '?', ':'].some(
+        (puctuation) => blocks[endIndex]?.Text?.endsWith(puctuation)
+      )
+    )
+      endIndex++;
+  }
+  const paragraph = blocks.slice(startIndex, endIndex);
+  paragraphs.push(paragraph.map((block) => block.Text!));
+
+  return paragraphs.map((lines) => lines.join(' '));
+}
+
 export const handler: Handler = async (event: SNSEvent): Promise<any> => {
   console.log('Event: ', JSON.stringify(event));
   const results = event.Records.map(async (record) => {
@@ -162,6 +198,10 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
         })
       )
     ).flat();
+    const paragraphs = getNumberedParagraphs(
+      blocks.filter(blockTypeFilter('LINE'))
+    );
+    console.debug('paragraphs', paragraphs);
 
     const [persistResult, ...saveLocations] = await Promise.allSettled([
       db.update(
@@ -174,6 +214,7 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
             ...header,
           },
           entities: new Set(entities),
+          paragraphs,
         })
       ),
       ...pages.map((page, i) =>
