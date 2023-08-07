@@ -30,13 +30,13 @@ export const persist = async (
         ReturnValues: ReturnValue.NONE,
       })
     );
-  
-    status = res.$metadata.httpStatusCode
+
+    status = res.$metadata.httpStatusCode;
   } catch (err) {
-    console.debug('Could not persist to dynamo:', err)
+    console.debug('Could not persist to dynamo:', err);
   }
 
-  console.debug('Dynamo db status:', status)
+  console.debug('Dynamo db status:', status);
 
   return status;
 };

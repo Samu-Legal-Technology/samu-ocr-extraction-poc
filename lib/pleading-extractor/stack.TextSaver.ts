@@ -4,8 +4,10 @@ import { TextExtractor, TextractRecord } from '../text-extractor';
 import * as s3 from '../aws/s3';
 import * as Utils from '../utils';
 import { Block } from '@aws-sdk/client-textract';
+import { TextComprehend } from '../text-comprehend';
 
 const extractor = new TextExtractor({});
+const comprehend = new TextComprehend();
 
 const blockTypeFilter = (type: string) => (block: Block) =>
   block.BlockType?.toUpperCase() === type.toUpperCase();
@@ -150,6 +152,17 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
     console.debug(`Found queries`, queries);
     const header = getHeader(blocks);
 
+    const entities: string[] = (
+      await Promise.all(
+        pages.map(async (page) => {
+          const pageEntities = await comprehend.extractEntities([
+            { Text: page },
+          ]);
+          return pageEntities;
+        })
+      )
+    ).flat();
+
     const [persistResult, ...saveLocations] = await Promise.allSettled([
       db.update(
         process.env.DOC_INFO_TABLE_NAME,
@@ -160,6 +173,7 @@ export const handler: Handler = async (event: SNSEvent): Promise<any> => {
             ...queries,
             ...header,
           },
+          entities: new Set(entities),
         })
       ),
       ...pages.map((page, i) =>

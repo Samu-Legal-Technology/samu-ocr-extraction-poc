@@ -16,7 +16,7 @@ export const handler: Handler = async (
     topicArn: process.env.NOTIFICATION_TOPIC_ARN,
   });
 
-  const comprehend = new TextComprehend()
+  const comprehend = new TextComprehend();
 
   if (event.key.endsWith('.eml')) {
     const { documentId, extraction } = await extractor.extractEmail(
@@ -83,18 +83,20 @@ export const handler: Handler = async (
       event.key
     );
 
-    const text: { Text: string }[] =  extraction.Transcript.reduce(
+    const text: { Text: string }[] = extraction.Transcript.reduce(
       (acc: [{ Text: string }], text: { Content: String }) => {
         return [{ Text: `${acc[0].Text}\n${text.Content}` }];
       },
       [{ Text: '' }]
-    )
+    );
 
     const entities = await comprehend.extractEntities(text);
 
-    const sentiments = await comprehend.extractSentimentsFromTranscript(extraction.Transcript)
+    const sentiments = await comprehend.extractSentimentsFromTranscript(
+      extraction.Transcript
+    );
 
-    const keyPhrases = await comprehend.extractKeyPhrases(text)
+    const keyPhrases = await comprehend.extractKeyPhrases(text);
 
     const transcript = extraction.Transcript.map((t: any) => ({
       M: {
