@@ -25,3 +25,12 @@ export function dedup<T>(items: T[], hasher: (item: T) => string): T[] {
     return seen.has(hash) ? false : seen.add(hash);
   });
 }
+
+export function getJobId(
+  result: PromiseSettledResult<{ jobId?: string; JobId?: string }>
+): string {
+  if (result.status === 'fulfilled') {
+    return result.value.jobId ?? result.value.JobId ?? 'NoJobId';
+  }
+  return result.reason;
+}

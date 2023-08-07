@@ -10,6 +10,7 @@ import {
   Query,
   StartDocumentAnalysisCommand,
   StartDocumentTextDetectionCommand,
+  StartExpenseAnalysisCommand,
   TextractClient,
 } from '@aws-sdk/client-textract';
 import * as S3Helper from './aws/s3';
@@ -250,6 +251,35 @@ export class TextExtractor {
     return {
       documentId: id,
       jobId: extractTextJob.JobId,
+    };
+  }
+
+  async asyncExtractExpense(
+    bucket: string,
+    key: string,
+    documentId?: string
+  ): Promise<TextExtractorAsyncResult> {
+    const id = documentId ?? Utils.generateId(key);
+
+    const extractExpensesJob = await textract.send(
+      new StartExpenseAnalysisCommand({
+        JobTag: documentId,
+        DocumentLocation: {
+          S3Object: {
+            Bucket: bucket,
+            Name: key,
+          },
+        },
+        NotificationChannel: {
+          RoleArn: this.notify.roleArn,
+          SNSTopicArn: this.notify.topicArn,
+        },
+      })
+    );
+
+    return {
+      documentId: id,
+      jobId: extractExpensesJob.JobId,
     };
   }
 

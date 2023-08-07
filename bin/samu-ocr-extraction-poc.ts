@@ -5,6 +5,7 @@ import { SamuOcrExtractionPocStack } from '../lib/samu-ocr-extraction-poc-stack'
 import MedicalExtractor from '../lib/medical-extractor/stack';
 import CorrespondenceExtractor from '../lib/correspondence-extractor/correspondence-extractor';
 import PleadingExtractor from '../lib/pleading-extractor/stack';
+import ExpenseExtractor from '../lib/expenses-extractor/stack';
 
 const app = new cdk.App();
 
@@ -38,6 +39,12 @@ new MedicalExtractor(app, 'MedExtractorStack', {
 new CorrespondenceExtractor(app, 'CommsExtractorStack', {
   docTable: sharedInfra.docTable,
   resultsBucket: sharedInfra.resultsBucket,
+});
+
+new ExpenseExtractor(app, 'ExpensesExtractorStack', {
+  docTable: sharedInfra.docTable,
+  resultsBucket: sharedInfra.resultsBucket,
+  resultTopic: sharedInfra.resultTopic,
 });
 
 new PleadingExtractor(app, 'PleadingExtractorStack', {
