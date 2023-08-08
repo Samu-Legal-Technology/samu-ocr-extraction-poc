@@ -11,8 +11,7 @@ const extractor = new TextExtractor({
 
 interface Result {
   documentId: string;
-  detectTextJobId?: string;
-  analyseExpenseJobId?: string;
+  expenseJobId?: string;
 }
 
 export const handler: Handler = async (
@@ -21,32 +20,25 @@ export const handler: Handler = async (
   console.log('Got Event', event);
   const documentId = generateId(event.key);
   console.debug('Doc Id', documentId);
-  const docLocation = {
-    S3Object: {
-      Bucket: event.bucket,
-      Name: event.key,
-    },
-  };
+
   const saveInitial = await db.persist(
     process.env.DOC_INFO_TABLE_NAME,
     documentId,
     {
       type: {
-        S: 'medical',
+        S: 'expense',
       },
       originalFile: {
         S: event.key,
       },
     }
   );
-  const [extractTextJob, expenseJob] = await Promise.allSettled([
-    extractor.asyncExtract(event.bucket, event.key, documentId),
+  const [expenseJob] = await Promise.allSettled([
     extractor.asyncExtractExpense(event.bucket, event.key, documentId),
   ]);
 
   return {
     documentId,
-    detectTextJobId: getJobId(extractTextJob),
-    analyseExpenseJobId: getJobId(expenseJob),
+    expenseJobId: getJobId(expenseJob),
   };
 };
